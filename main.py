@@ -1,4 +1,7 @@
 
+#!/usr/bin/python
+# -*- coding: utf-8 -*-
+
 import os
 import discord
 from discord import app_commands
