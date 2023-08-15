@@ -25,7 +25,11 @@ tree = app_commands.CommandTree(client)
 
 async def output_log(logStr): #ログプリント用関数
   dt = datetime.now(ZoneInfo("Asia/Tokyo"))
-  logstr = f'[log {dt.hour:02}:{dt.minute:02}:{dt.second:02}]{logStr}'
+  logstr = f'[{dt.hour:02}:{dt.minute:02}:{dt.second:02}] {logStr}'
+  
+  #ログをコンソールに表示する
+  print(logstr)
+  
   #ログをbot用サーバーに投稿する
   channel = client.get_channel(1140787559325249717)
   await channel.send(logstr)
