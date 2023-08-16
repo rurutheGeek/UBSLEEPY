@@ -24,4 +24,4 @@ jobs:
               echo not killed.
           fi
 
-          nohup python3 main.py &
+          RUNNER_TRACKING_ID="" && nohup python3 main.py &
