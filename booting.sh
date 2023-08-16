@@ -6,6 +6,6 @@
 echo ...Bot booting...
 cd /home/ruru/UBSLEEPY
 git --git-dir=.git pull origin main
-python3 /home/ruru/UBSLEEPY/main.py &
-/home/ruru/actions-runner/run.sh &
+nohup python3 /home/ruru/UBSLEEPY/main.py &
+nohup /home/ruru/actions-runner/run.sh &
 exit 0
