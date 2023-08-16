@@ -12,16 +12,18 @@ jobs:
       - name: restart
         run: |
           #!/bin/sh
-          echo ...UBSLEEPY deploy...
+          
+          echo ...UBSLEEPY deploying...
           cd /home/ruru/UBSLEEPY/
           git --git-dir=.git pull origin main
-          echo ...UBSLEEPY restart...
-
+          echo ok.
+          
+          echo ...UBSLEEPY restarting...
           if pgrep -f "main.py" > /dev/null; then
               pkill -f "main.py"
               echo killed.
           else
               echo not killed.
           fi
-
           RUNNER_TRACKING_ID="" && nohup python3 main.py &
+          echo ok.
