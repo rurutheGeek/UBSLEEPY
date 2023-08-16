@@ -16,5 +16,12 @@ jobs:
           cd /home/ruru/UBSLEEPY/
           git --git-dir=.git pull origin main
           echo ...UBSLEEPY restart...
-          pkill -f main.py
+
+          if pgrep -f "main.py" > /dev/null; then
+              pkill -f "main.py"
+              echo killed.
+          else
+              echo not killed.
+          fi
+
           python3 main.py
