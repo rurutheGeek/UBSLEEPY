@@ -1,0 +1,20 @@
+name: autoDeployRaspi
+on:
+  push:
+    branches: 
+      - main
+jobs:
+  deploy:
+    name: deploy
+    runs-on: [self-hosted, linux, ARM64]
+    steps:
+      - uses: actions/checkout@v2
+      - name: restart
+        run: |
+          #!/bin/sh
+          echo ...UBSLEEPY deploy...
+          cd /home/ruru/UBSLEEPY/
+          git --git-dir=.git pull origin main
+          echo ...UBSLEEPY restart...
+          pkill -f main.py
+          python3 main.py
