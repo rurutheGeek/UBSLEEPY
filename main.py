@@ -38,4 +38,4 @@ async def output_log(logStr): #ログプリント用関数
 async def on_ready():#bot起動時
  await output_log("botが起動しました")
 
-client.run(os.environ.get('DISCORD_TOKEN'))
+client.run(os.environ.get('DISCORD_TOKEN'),reconnect=True)
