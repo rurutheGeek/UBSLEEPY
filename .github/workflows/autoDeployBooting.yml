@@ -1,22 +1,23 @@
-name: autoDeployRaspi
+name: bootingRaspi
 on:
   push:
     branches: 
       - main
+  workflow_dispatch:
 jobs:
   deploy:
-    name: deploy
+    name: booting
     runs-on: [self-hosted, linux, ARM64]
     steps:
       - uses: actions/checkout@v2
-      - name: restart
+      - name: deploy
         run: |
           #!/bin/sh
           
           echo ...UBSLEEPY deploying...
           cd /home/ruru/UBSLEEPY/
           git --git-dir=.git pull origin main
-          echo ok.
+          echo pull ok.
           
           echo ...UBSLEEPY restarting...
           if pgrep -f "main.py" > /dev/null; then
@@ -26,4 +27,4 @@ jobs:
               echo not killed.
           fi
           RUNNER_TRACKING_ID="" && nohup python3 main.py &
-          echo ok.
+          echo boot ok.
