@@ -71,7 +71,7 @@ PRIZE_DICT = {
 
 ## 各種ファイルのパス
 # main.pyのディレクトリ
-PROJECT_ROOT = "../"#os.getcwd()#os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))#os.getcwd()#os.path.dirname(os.path.abspath(__file__))
 #
 REPORT_PATH = os.path.join(PROJECT_ROOT, "save/report.csv")
 BSS_GRAPH_PATH = os.path.join(PROJECT_ROOT, 'save/graph.png')
@@ -83,7 +83,8 @@ MEMORY_PATH = os.path.join(PROJECT_ROOT, "save/restMemorychannel.csv")
 CALLDATA_PATH = os.path.join(PROJECT_ROOT, "save/busychannel.csv")
 MEMBERDATA_PATH = os.path.join(PROJECT_ROOT, "resource/member_breloom.csv")
 CALLLOG_PATH = os.path.join(PROJECT_ROOT, "log/calllog.csv")
-
+print(PROJECT_ROOT)
+print(REPORT_PATH)
 #グローバルずかんデータ
 GROBAL_BRELOOM_DF = pd.read_csv(POKEDEX_PATH)
 GROBAL_BRELOOM_DF['ぜんこくずかんナンバー'] = GROBAL_BRELOOM_DF['ぜんこくずかんナンバー'].apply(lambda x: str(int(x)) if x.is_integer() else str(x))
