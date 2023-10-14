@@ -1,10 +1,19 @@
-#.gitignore はgitの追跡を管理するための設定ファイルです
-#容量の都合上,リソースファイルはgitで管理しません
-#テストで用いたいデータは個別にresourceフォルダに配置してください
-#resourceディレクトリ内の変更はpushをしても反映されません
+#.gitignore はgitの追跡を削除・管理するための設定ファイルです
 
-#リポジトリのクローンに含まれるresourceディレクトリを無視する
-/resource/
+#容量が大きくなってしまうためリソースファイルはgitで管理しません
+#テストで用いたいデータは個別にresourceフォルダ内のディレクトリに配置してください
+#リソースファイルを共有しない
+/resource/image
+/resource/sound
+#メンバーの個人情報は共有しない
+/resource/member_breloom.csv
 
-#目印として空のディレクトリを無視しない
+#リポジトリに共有したくないファイルはtempフォルダに配置してください
+/temp
+
+#dontignoreファイルを目印として空のディレクトリを追跡する
 !dontignore
+
+#botトークンは共有しない(.envの中身は以下の通り)
+#DISCORD_TOKEN=ここにbotトークン
+.env
