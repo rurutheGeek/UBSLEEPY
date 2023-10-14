@@ -71,7 +71,7 @@ PRIZE_DICT = {
 
 ## 各種ファイルのパス
 # main.pyのディレクトリ
-PROJECT_ROOT = os.getcwd()#os.path.dirname(os.path.abspath(__file__))
+PROJECT_ROOT = "../"#os.getcwd()#os.path.dirname(os.path.abspath(__file__))
 #
 REPORT_PATH = os.path.join(PROJECT_ROOT, "save/report.csv")
 BSS_GRAPH_PATH = os.path.join(PROJECT_ROOT, 'save/graph.png')
