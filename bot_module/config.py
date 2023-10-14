@@ -84,16 +84,6 @@ MEMORY_PATH = "save/restMemorychannel.csv"
 CALLDATA_PATH = "save/busychannel.csv"
 MEMBERDATA_PATH = "resource/member_breloom.csv"
 CALLLOG_PATH = "log/calllog.csv"
-"""REPORT_PATH = os.path.join(PROJECT_ROOT, "save/report.csv")
-BSS_GRAPH_PATH = os.path.join(PROJECT_ROOT, 'save/graph.png')
-POKEDEX_PATH = os.path.join(PROJECT_ROOT, "resource/pokedata_breloom.csv")
-POKECALENDAR_PATH = os.path.join(PROJECT_ROOT, "resource/pokecalendar_breloom.csv")
-POKESENRYU_PATH = os.path.join(PROJECT_ROOT, "resource/pokesenryu_breloom.csv")
-FEEDBACK_PATH = os.path.join(PROJECT_ROOT, "save/feedback.csv")
-MEMORY_PATH = os.path.join(PROJECT_ROOT, "save/restMemorychannel.csv")
-CALLDATA_PATH = os.path.join(PROJECT_ROOT, "save/busychannel.csv")
-MEMBERDATA_PATH = os.path.join(PROJECT_ROOT, "resource/member_breloom.csv")
-CALLLOG_PATH = os.path.join(PROJECT_ROOT, "log/calllog.csv")"""
 #グローバルずかんデータ
 GROBAL_BRELOOM_DF = pd.read_csv(POKEDEX_PATH)
 GROBAL_BRELOOM_DF['ぜんこくずかんナンバー'] = GROBAL_BRELOOM_DF['ぜんこくずかんナンバー'].apply(lambda x: str(int(x)) if x.is_integer() else str(x))
