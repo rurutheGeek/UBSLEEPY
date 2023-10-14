@@ -468,7 +468,7 @@ class quiz:
 
         fixAns = self.ansText
         if self.quizName in ["bq", "etojq", "ctojq"]:
-            if (repPokeData := await ub.fetch_pokemon(self.ansText)) is not None:
+            if (repPokeData := ub.fetch_pokemon(self.ansText)) is not None:
                 fixAns = repPokeData.iloc[0]["おなまえ"]
         elif self.quizName == "jtoeq":
             fixAns = jaconv.z2h(
