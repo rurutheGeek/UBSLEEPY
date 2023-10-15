@@ -58,13 +58,15 @@ GUILD_IDS = config_dict.get("guild_id", [])
 
 
 tree = discord.app_commands.CommandTree(client)
+
+
 @client.event
 async def on_ready():  # bot起動時
     global BQ_FILTERED_DF
 
     # config.jsonが見つからない場合新規作成する
     try:
-        with open("config.json", mode='x') as file:
+        with open("config.json", mode="x") as file:
             output_log("config.json ファイルが見つかりません。新規作成します。")
             json.dump(config_dict, file, indent=4)
     except FileExistsError:
@@ -72,7 +74,7 @@ async def on_ready():  # bot起動時
 
     for guild_id in GUILD_IDS:
         await tree.sync(guild=discord.Object(id=guild_id))
-    #await tree.sync()
+    # await tree.sync()
 
     BQ_FILTERED_DF = ub.filter_dataframe(BQ_FILTER_DICT).fillna("なし")
 
@@ -116,7 +118,9 @@ async def post_logs():
 async def slash_test(interaction: discord.Interaction):
     if interaction.user.guild_permissions.administrator:
         if interaction.guild.id in GUILD_IDS:
-            await interaction.response.send_message("このサーバーはすでに登録されています", ephemeral=True)
+            await interaction.response.send_message(
+                "このサーバーはすでに登録されています", ephemeral=True
+            )
         else:
             GUILD_IDS.append(interaction.guild.id)
             # config.jsonに追加
@@ -124,21 +128,37 @@ async def slash_test(interaction: discord.Interaction):
             with open("config.json", "w") as file:
                 json.dump(config_dict, file, indent=4)
                 await tree.sync(guild=discord.Object(id={interaction.guild.id}))
-                await interaction.response.send_message("このサーバーにギルドコマンドを登録しました", ephemeral=True)
+                await interaction.response.send_message(
+                    "このサーバーにギルドコマンドを登録しました", ephemeral=True
+                )
+
 
 @tree.command(name="notice", description="botのステータスメッセージを変更します")
-@discord.app_commands.describe(message='ステータスメッセージ')
+@discord.app_commands.describe(message="ステータスメッセージ")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 async def slash_notice(interaction: discord.Interaction, message: str = "キノコのほうし"):
-  if interaction.user.guild_permissions.administrator:
-    if message is not None:
-      await client.change_presence(activity=discord.Activity(name=message, type=discord.ActivityType.playing))
+    if interaction.user.guild_permissions.administrator:
+        if message is not None:
+            await client.change_presence(
+                activity=discord.Activity(
+                    name=message, type=discord.ActivityType.playing
+                )
+            )
+        else:
+            await client.change_presence(
+                activity=discord.Activity(
+                    name="キノコのほうし", type=discord.ActivityType.playing
+                )
+            )
+        await interaction.response.send_message(
+            f"アクティビティが **{message}** に変更されました", ephemeral=True
+        )
     else:
-      await client.change_presence(activity=discord.Activity(name='キノコのほうし', type=discord.ActivityType.playing))
-    await interaction.response.send_message(f"アクティビティが **{message}** に変更されました", ephemeral=True)
-  else:
-    await interaction.response.send_message(f"""```{client.user.name}は
-{random.choice(["めいれいを むしした!", "なまけている!", "そっぽを むいた!", "いうことを きかない!", "しらんぷりした!"])}```""")
+        await interaction.response.send_message(
+            f"""```{client.user.name}は
+{random.choice(["めいれいを むしした!", "なまけている!", "そっぽを むいた!", "いうことを きかない!", "しらんぷりした!"])}```"""
+        )
+
 
 @tree.command(name="q", description="現在の出題設定に基づいてクイズを出題します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
@@ -222,14 +242,21 @@ async def on_message(message):
     if message.author.bot:  # メッセージ送信者がBotだった場合は無視する
         return
 
-    #ユーザーID1076387439410675773がオンラインである時
-    if client.get_user(1076387439410675773).status == discord.Status.online:
-        await client.change_presence(activity=discord.Activity(name='テスト運用チュウ', type=discord.ActivityType.listening))
+    # senpaiがオンラインである時
+    senpai_id = 1076387439410675773
+    senpai = message.guild.get_member(senpai_id)
+    if senpai and senpai.status == discord.Status.online:
+        await client.change_presence(
+            activity=discord.Activity(name="研修チュウ", type=discord.ActivityType.playing)
+        )
         return
     else:
-        await client.change_presence(activity=discord.Activity(name="種族値クイズ", type=discord.ActivityType.competing))
-        
-    
+        await client.change_presence(
+            activity=discord.Activity(
+                name="種族値クイズ", type=discord.ActivityType.competing
+            )
+        )
+
     if message.content.startswith("/bqdata"):
         bqFilterWords = message.content.split()[1:]
 
@@ -286,20 +313,26 @@ async def on_message(message):
         output_log("出題条件を表示します")
         await message.channel.send(response, embed=bqFilteredEmbed)
 
-    #リプライ(reference)に反応
+    # リプライ(reference)に反応
     elif message.reference is not None:
-      #リプライ先メッセージのキャッシュを取得
-      message.reference.resolved = await message.channel.fetch_message(message.reference.message_id)
+        # リプライ先メッセージのキャッシュを取得
+        message.reference.resolved = await message.channel.fetch_message(
+            message.reference.message_id
+        )
 
-      #bot自身へのリプライに反応
-      if (message.reference.resolved.author == client.user and message.reference.resolved.embeds):
-        embedFooterText = message.reference.resolved.embeds[0].footer.text
-        #リプライ先にembedが含まれるかつ未回答のクイズの投稿か
-        if ("No.26 ポケモンクイズ" in embedFooterText  and not "(done)" in embedFooterText):
-          await quiz(embedFooterText.split()[3]).try_response(message)
-          
-        else :
-          output_log("botへのリプライは無視されました")
+        # bot自身へのリプライに反応
+        """if (
+            message.reference.resolved.author == client.user
+            and message.reference.resolved.embeds
+        ):"""
+        if message.reference.resolved.embeds:
+            embedFooterText = message.reference.resolved.embeds[0].footer.text
+            # リプライ先にembedが含まれるかつ未回答のクイズの投稿か
+            if "No.26 ポケモンクイズ" in embedFooterText and not "(done)" in embedFooterText:
+                await quiz(embedFooterText.split()[3]).try_response(message)
+
+            else:
+                output_log("botへのリプライは無視されました")
 
 
 class quiz:
