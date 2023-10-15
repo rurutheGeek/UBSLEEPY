@@ -114,17 +114,31 @@ async def post_logs():
 # スラッシュコマンド
 @tree.command(name="import", description="このサーバーにギルドコマンドをインポートします")
 async def slash_test(interaction: discord.Interaction):
-    if interaction.guild.id in GUILD_IDS:
-        await interaction.response.send_message("このサーバーはすでに登録されています", ephemeral=True)
-    else:
-        GUILD_IDS.append(interaction.guild.id)
-        # config.jsonに追加
-        config_dict["guild_id"] = GUILD_IDS
-        with open("config.json", "w") as file:
-            json.dump(config_dict, file, indent=4)
-            await tree.sync(guild=discord.Object(id={interaction.guild.id}))
-            await interaction.response.send_message("このサーバーにギルドコマンドを登録しました", ephemeral=True)
+    if interaction.user.guild_permissions.administrator:
+        if interaction.guild.id in GUILD_IDS:
+            await interaction.response.send_message("このサーバーはすでに登録されています", ephemeral=True)
+        else:
+            GUILD_IDS.append(interaction.guild.id)
+            # config.jsonに追加
+            config_dict["guild_id"] = GUILD_IDS
+            with open("config.json", "w") as file:
+                json.dump(config_dict, file, indent=4)
+                await tree.sync(guild=discord.Object(id={interaction.guild.id}))
+                await interaction.response.send_message("このサーバーにギルドコマンドを登録しました", ephemeral=True)
 
+@tree.command(name="notice", description="botのステータスメッセージを変更します")
+@discord.app_commands.describe(message='ステータスメッセージ')
+@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
+async def slash_notice(interaction: discord.Interaction, message: str = "キノコのほうし"):
+  if interaction.user.guild_permissions.administrator:
+    if message is not None:
+      await client.change_presence(activity=discord.Activity(name=message, type=discord.ActivityType.playing))
+    else:
+      await client.change_presence(activity=discord.Activity(name='キノコのほうし', type=discord.ActivityType.playing))
+    await interaction.response.send_message(f"アクティビティが **{message}** に変更されました", ephemeral=True)
+  else:
+    await interaction.response.send_message(f"""```{client.user.name}は
+{random.choice(["めいれいを むしした!", "なまけている!", "そっぽを むいた!", "いうことを きかない!", "しらんぷりした!"])}```""")
 
 @tree.command(name="q", description="現在の出題設定に基づいてクイズを出題します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
@@ -208,6 +222,11 @@ async def on_message(message):
     if message.author.bot:  # メッセージ送信者がBotだった場合は無視する
         return
 
+    #ユーザーID1076387439410675773がオンラインである時
+    if client.get_user(1076387439410675773).status == discord.Status.online:
+        await client.change_presence(activity=discord.Activity(name='テスト運用チュウ', type=discord.ActivityType.listening))
+        return
+    
     if message.content.startswith("/bqdata"):
         bqFilterWords = message.content.split()[1:]
 
