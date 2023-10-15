@@ -16,7 +16,9 @@ jobs:
           
           echo ...UBSLEEPY deploying...
           cd /home/ruru/UBSLEEPY/
+          git stash
           git --git-dir=.git pull origin main
+          git stash pop
           echo pull ok.
           
           echo ...UBSLEEPY restarting...
