@@ -653,7 +653,7 @@ class quiz:
             try:
                 await self.qm.edit(embed=self.quizEmbed, attachments=[])
             except discord.errors.Forbidden:
-                await self.qm.channel.send(embed=self.quizEmbed, attachments=[])
+                pass
 
         await self.rm.reply(f"{hintIndex}は{hintValue}です")
 
@@ -711,7 +711,7 @@ class quiz:
             try:
                 await self.qm.edit(embed=self.quizEmbed, attachments=[])
             except discord.errors.Forbidden:
-                await self.qm.channel.send(embed=self.quizEmbed, attachments=[])
+                await self.qm.channel.send(embed=self.quizEmbed)
 
         elif isinstance(self.rm, discord.Interaction):
             fixView = discord.ui.View()
@@ -723,7 +723,7 @@ class quiz:
                 embed=self.quizEmbed, attachments=[], view=fixView
                 )
             except discord.errors.Forbidden:
-                await self.qm.channel.send(embed=self.quizEmbed, attachments=[])
+                pass
 
         QUIZ_PROCESSING_FLAG = 0  # 回答開示処理を終わる
         await self.__continue()  # 連続出題を試みる
