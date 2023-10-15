@@ -223,9 +223,12 @@ async def on_message(message):
         return
 
     #ユーザーID1076387439410675773がオンラインである時
-    if message.guild.id == 1067125843647791114 and client.get_user(1076387439410675773).status == discord.Status.online:
+    if client.get_user(1076387439410675773).status == discord.Status.online:
         await client.change_presence(activity=discord.Activity(name='テスト運用チュウ', type=discord.ActivityType.listening))
         return
+    else:
+        await client.change_presence(activity=discord.Activity(name="種族値クイズ", type=discord.ActivityType.competing))
+        
     
     if message.content.startswith("/bqdata"):
         bqFilterWords = message.content.split()[1:]
