@@ -223,7 +223,7 @@ async def on_message(message):
         return
 
     #ユーザーID1076387439410675773がオンラインである時
-    if client.get_user(1076387439410675773).status == discord.Status.online:
+    if message.guild.id == 1067125843647791114 and client.get_user(1076387439410675773).status == discord.Status.online:
         await client.change_presence(activity=discord.Activity(name='テスト運用チュウ', type=discord.ActivityType.listening))
         return
     

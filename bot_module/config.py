@@ -7,7 +7,7 @@ import pandas as pd
 
 #client
 #activity = discord.Activity(name='キノコのほうし', type=discord.ActivityType.playing)
-activity = discord.Activity(name="種族値クイズ研修チュウ", type=discord.ActivityType.competing)
+activity = discord.Activity(name="種族値クイズ", type=discord.ActivityType.competing)
 client = discord.Client(intents=discord.Intents.all(),activity=activity)
 
 ##サーバーID
