@@ -650,7 +650,10 @@ class quiz:
         # 初出のヒントならEmbedにフィールドを追加
         if not any(field.name == hintIndex for field in self.quizEmbed.fields):
             self.quizEmbed.add_field(name=hintIndex, value=hintValue)
-            await self.qm.edit(embed=self.quizEmbed, attachments=[])
+            try:
+                await self.qm.edit(embed=self.quizEmbed, attachments=[])
+            except discord.errors.Forbidden:
+                await self.qm.channel.send(embed=self.quizEmbed, attachments=[])
 
         await self.rm.reply(f"{hintIndex}は{hintValue}です")
 
@@ -705,16 +708,22 @@ class quiz:
         self.quizEmbed.set_footer(text=self.quizEmbed.footer.text + "(done)")
 
         if isinstance(self.rm, discord.Message):
-            await self.qm.edit(embed=self.quizEmbed, attachments=[])
+            try:
+                await self.qm.edit(embed=self.quizEmbed, attachments=[])
+            except discord.errors.Forbidden:
+                await self.qm.channel.send(embed=self.quizEmbed, attachments=[])
 
         elif isinstance(self.rm, discord.Interaction):
             fixView = discord.ui.View()
             fixView.from_message(self.qm)
             for child in fixView.children:
                 child.disabled = True
-            await self.rm.response.edit_message(
+            try:
+                await self.rm.response.edit_message(
                 embed=self.quizEmbed, attachments=[], view=fixView
-            )
+                )
+            except discord.errors.Forbidden:
+                await self.qm.channel.send(embed=self.quizEmbed, attachments=[])
 
         QUIZ_PROCESSING_FLAG = 0  # 回答開示処理を終わる
         await self.__continue()  # 連続出題を試みる
