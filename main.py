@@ -242,6 +242,7 @@ async def on_message(message):
     if message.author.bot:  # メッセージ送信者がBotだった場合は無視する
         return
 
+
     # senpaiがオンラインである時
     senpai_id = 1076387439410675773
     senpai = message.guild.get_member(senpai_id)
