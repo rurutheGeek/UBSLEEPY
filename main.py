@@ -335,6 +335,130 @@ async def on_message(message):
             else:
                 output_log("botへのリプライは無視されました")
 
+#新規メンバーが参加したときの処理
+@client.event
+async def on_member_join(member):
+    if not member.bot:
+        await member.add_roles(member.guild.get_role(UNKNOWN_ROLE_ID))
+        if (helloCh := client.get_channel(HELLO_CHANNEL_ID)):
+            helloEmbed=discord.Embed(
+                title="メンバー認証ボタンを押して 学籍番号を送信してね",
+                color=0x5eff24,
+                description="送信するとサーバーが使用可能になります\n工学院大学の学生でない人は個別にご相談ください"
+            )
+            helloEmbed.set_author(name=f'{member.guild.name}の せかいへ ようこそ!')
+            helloEmbed.add_field(name="サーバーの ガイドラインは こちら", value=f'{BOLL_ICON}<#1067423922477355048>', inline=False)
+            helloEmbed.add_field(name="みんなにみせるロールを 変更する", value=f'{BOLL_ICON}<#1068903858790731807>', inline=False)
+            helloEmbed.set_thumbnail(url=f'{RESOURCES_LINK}sprites/Gen1/{random.randint(1, 151)}.png')
+        
+            authButton = discord.ui.Button(label="メンバー認証",style=discord.ButtonStyle.primary,custom_id="authButton")
+            helloView = discord.ui.View()
+            helloView.add_item(authButton)
+            
+            await helloCh.send(f"はじめまして! {member.mention}さん",embed=helloEmbed,view=helloView)
+            output_log(f'サーバーにメンバーが参加しました: {member.name}')
+
+@client.event
+async def on_interaction(interaction:discord.Interaction):
+    if "custom_id" in interaction.data and interaction.data["custom_id"] == "authModal":
+        output_log("学籍番号を処理します")
+        listPath = "resources/member_breloom.csv"
+        studentId = interaction.data['components'][0]['components'][0]['value']
+        
+        if (studentId := studentId.upper()).startswith(('S', 'A', 'C', 'J', 'D')) and re.match(r'^[A-Z0-9]+$', studentId) and len(studentId) == 7:  
+            member = interaction.user
+            role = interaction.guild.get_role(UNKNOWN_ROLE_ID)
+            favePokeName = interaction.data['components'][1]['components'][0]['value']
+            response = "登録を修正したい場合はもう一度ボタンを押してください"
+
+            if role in member.roles: #ロールを持っていれば削除
+                await member.remove_roles(role)
+                response += "\nサーバーが利用可能になりました"
+                output_log(f'学籍番号が登録されました\n {member.name}: {studentId}') 
+            else:
+                output_log(f'登録の修正を受け付けました\n {member.name}: {studentId}') 
+            response += "\n`※このメッセージはあなたにしか表示されていません`"
+            
+            thanksEmbed=discord.Embed(
+                title="登録ありがとうございました",
+                color=0x2eafff,
+                description=response
+            )
+            thanksEmbed.add_field(name="登録した学籍番号", value=studentId)
+            thanksEmbed.add_field(name="好きなポケモン", value=favePokeName if not favePokeName=="" else "登録なし")
+
+            if not favePokeName == "":
+                if (favePokedata := fetch_pokemon(favePokeName))is not None:
+                    favePokeName = favePokedata.iloc[0]['おなまえ']
+
+            times = datetime.now(ZoneInfo("Asia/Tokyo")).strftime("%Y/%m/%d %H:%M:%S")
+            authData = {'登録日時':[times], 'ユーザーID': [str(member.id)], 'ユーザー名': [member.name],'学籍番号': [studentId],'好きなポケモン':[favePokeName]}
+            df = pd.DataFrame(authData)
+            df.to_csv('save/studentid.csv', mode='a', index=False, header=not os.path.exists('save/studentid.csv'))
+                
+            content = "照合に失敗しました ?\n※メンバーリストにまだ学籍番号のデータがない可能性があります"
+            if os.path.exists(listPath):
+                member_df = pd.read_csv(listPath).set_index("学籍番号")
+                if studentId in member_df.index:
+                    memberData = pd.DataFrame({
+                        'ユーザーID': [member.id],
+                        'ユーザー名':[member.name],
+                        '好きなポケモン': [favePokeName]
+                    }, index=[studentId]).iloc[0]
+                    member_df.loc[studentId] = memberData
+                    member_df['ユーザーID'] = member_df['ユーザーID'].dropna().replace([np.inf, -np.inf], np.nan).dropna().astype(int)
+                    
+                    member_df.to_csv(listPath, index=True, float_format="%.0f")
+                    content = "照合に成功しました"
+                    output_log(f'サークルメンバー照合ができました\n {studentId}: {member.name}')
+                else:
+                    output_log(f'サークルメンバー照合ができませんでした\n {studentId}: {member.name}')
+            
+            await interaction.response.send_message(content, embed=thanksEmbed, ephemeral=True)
+
+        else: #学籍番号が送信されなかった場合の処理
+            output_log(f'学籍番号として認識されませんでした: {studentId}')
+            errorEmbed=discord.Embed(
+                title="401 Unauthorized",
+                color=0xff0000,
+                description=f'あなたの入力した学籍番号: **{studentId}**\n申し訳ございませんが、もういちどお試しください。')
+            errorEmbed.set_author(name="Porygon-Z.com",url="https://wiki.ポケモン.com/wiki/ポリゴンZ")
+            errorEmbed.set_thumbnail(url=f'{RESOURCES_LINK}art/474.png')
+            errorEmbed.add_field(name="入力形式は合っていますか?", value="半角英数字7ケタで入力してください", inline=False)
+            errorEmbed.add_field(name="工学院生ではありませんか?", value="個別にご相談ください", inline=False)
+            errorEmbed.add_field(name="解決しない場合", value=f'管理者にお問い合わせください: <@!{DEVELOPER_USER_ID}>', inline=False)
+            await interaction.response.send_message(embed=errorEmbed, ephemeral=True)
+        
+    elif "component_type" in interaction.data and interaction.data["component_type"] == 2:
+        output_log(f'buttonが押されました\n {interaction.user.name}: {interaction.data["custom_id"]}')
+        await on_button_click(interaction)
+
+async def on_button_click(interaction:discord.Interaction):
+        custom_id = interaction.data["custom_id"] #custom_id(インタラクションの識別子)を取り出す
+    
+        if custom_id == "authButton": #メンバー認証ボタン モーダルを送信する
+            output_log("学籍番号取得を実行します")
+            authModal = discord.ui.Modal(
+                title="メンバー認証",
+                timeout=None,
+                custom_id="authModal"
+            )
+            authInput = discord.ui.TextInput(
+                label="学籍番号",
+                placeholder="J111111",
+                min_length=7,
+                max_length=7,
+                custom_id="studentIdInput"
+            )
+            authModal.add_item(authInput)
+            favePokeInput = discord.ui.TextInput(
+                label="好きなポケモン(任意)",
+                placeholder="ヤブクロン",
+                required=False,
+                custom_id="favePokeInput"
+            )
+            authModal.add_item(favePokeInput)
+            await interaction.response.send_modal(authModal)
 
 class quiz:
     def __init__(self, quizName):
