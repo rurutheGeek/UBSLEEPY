@@ -369,7 +369,7 @@ async def on_interaction(interaction:discord.Interaction):
         listPath = "resource/member_breloom.csv"
         studentId = interaction.data['components'][0]['components'][0]['value']
         
-        if (studentId := studentId.upper()).startswith(('S', 'A', 'C', 'J', 'D','E')) and re.match(r'^[A-Z0-9]+$', studentId) and len(studentId) == 7:  
+        if (studentId := studentId.upper()).startswith(('S', 'A', 'C', 'J', 'D','B','E','G')) and re.match(r'^[A-Z0-9]+$', studentId) and len(studentId) == 7:  
             member = interaction.user
             role = interaction.guild.get_role(UNKNOWN_ROLE_ID)
             favePokeName = interaction.data['components'][1]['components'][0]['value']
