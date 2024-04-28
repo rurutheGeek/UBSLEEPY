@@ -1,0 +1,23 @@
+name: killingRaspi
+on:
+  push:
+    branches: 
+      - main
+  workflow_dispatch:
+jobs:
+  deploy:
+    name: booting
+    runs-on: [self-hosted, linux, ARM64]
+    steps:
+      - uses: actions/checkout@v2
+      - name: deploy
+        run: |
+          #!/bin/sh
+          echo ...UBSLEEPY killing...
+          if pgrep -f "main.py" > /dev/null; then
+              pkill -f "main.py"
+              echo killed.
+          else
+              echo not killed.
+          fi
+          RUNNER_TRACKING_ID="" &
