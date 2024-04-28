@@ -17,8 +17,8 @@ import discord
 from discord.ext import tasks
 import pandas as pd
 import numpy as np
-import jaconv
-from dotenv import load_dotenv
+import jaconv # type: ignore
+from dotenv import load_dotenv # type: ignore
 
 # 分割されたモジュール
 import bot_module.func as ub
@@ -1232,25 +1232,23 @@ def load_wallet_data(file_path):
             user_wallet[user_name] = wallet
     return user_wallet
 
-user_wallet = load_wallet_data('report.csv')
+user_wallet = load_wallet_data('save/report.csv')
 
 # おこずかいランキングを表示するコマンド
 @tree.command(name="moneyrank", description="現在のおこずかいランキングTOP3を表示します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
-@discord.app_commands.describe(quizname="おこずかいをたくさん持っている人がわかります")
-async def moneyrank(interaction: discord.Interaction):
+@discord.app_commands.describe()
+async def slash_moneyrank(interaction: discord.Interaction):
     seiseiEmbed = discord.Embed(
         title="**妖精さん けいさんチュウ**",
         color=0xFFFFFF,  # デフォルトカラー
         description=f"ちょっとまっち",
     )
-    await interaction.response.send_message(embed=seiseiEmbed)
-
     sorted_users = sorted(user_wallet.items(), key=lambda x: x[1], reverse=True)
     
     rank_message = "おこずかいランキング（上位3名）:\n"
-    for i, (user_name, wallet) in enumerate(sorted_users[:3], start=1):
-        rank_message += f"{i}. ユーザー名: {user_name}, おこずかい: {wallet}\n"
+    for i, (user_id, wallet) in enumerate(sorted_users[:3], start=1):
+        rank_message += f"{i}. ユーザー名: {user_id}, おこずかい: {wallet}\n"
 
     await interaction.response.send_message(rank_message)
     
