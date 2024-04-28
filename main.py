@@ -26,8 +26,8 @@ import bot_module.embed as ub_embed
 from bot_module.config import *
 
 # """デバッグ用設定
-LOG_CHANNEL_ID = 1140787559325249717
-PDW_SERVER_ID = DEV_SERVER_ID
+LOG_CHANNEL_ID = 1140787559325249717 #ログを出力するチャンネルのIDに変更
+PDW_SERVER_ID = DEV_SERVER_ID #開発しているサーバーのIDに変更
 DEBUG_CHANNEL_ID = LOG_CHANNEL_ID
 GUIDELINE_CHANNEL_ID = LOG_CHANNEL_ID
 STAGE_CHANNEL_ID = LOG_CHANNEL_ID
@@ -73,9 +73,16 @@ async def on_ready():  # bot起動時
     except FileExistsError:
         pass
 
-    for guild_id in GUILD_IDS:
-        await tree.sync(guild=discord.Object(id=guild_id))
-    # await tree.sync()
+    if(len(GUILD_IDS)==0):
+        output_log("登録済のサーバーが0個です")
+    else:
+        syncGuildName=""
+        i=0
+        for guild_id in GUILD_IDS:
+            syncGuildName+=f"#{i} \n{client.get_guild(guild_id).name}"
+            await tree.sync(guild=discord.Object(id=guild_id))
+            i+=1
+        output_log(f"登録済のサーバーを{len(GUILD_IDS)}個読み込みました{syncGuildName}")
 
     BQ_FILTERED_DF = ub.filter_dataframe(BQ_FILTER_DICT).fillna("なし")
 
