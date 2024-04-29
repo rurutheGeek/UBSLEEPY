@@ -26,8 +26,8 @@ import bot_module.embed as ub_embed
 from bot_module.config import *
 
 # """デバッグ用設定
-LOG_CHANNEL_ID = 1140787559325249717
-PDW_SERVER_ID = DEV_SERVER_ID
+LOG_CHANNEL_ID = 1234136318142054494 #1140787559325249717
+PDW_SERVER_ID = 1234136318142054491 #DEV_SERVER_ID
 DEBUG_CHANNEL_ID = LOG_CHANNEL_ID
 GUIDELINE_CHANNEL_ID = LOG_CHANNEL_ID
 STAGE_CHANNEL_ID = LOG_CHANNEL_ID
@@ -1229,13 +1229,14 @@ def load_wallet_data(file_path):
         for row in reader:
             user_name = row['ユーザー名']
             wallet = int(row['おこづかい'])
+            objid = row['ユーザーID']
             user_wallet[user_name] = wallet
     return user_wallet
 
 user_wallet = load_wallet_data('save/report.csv')
 
-# おこずかいランキングを表示するコマンド
-@tree.command(name="moneyrank", description="現在のおこずかいランキングTOP3を表示します")
+# おこづかいランキングを表示するコマンド
+@tree.command(name="moneyrank", description="現在のおこづかいランキングTOP3を表示します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 @discord.app_commands.describe()
 async def slash_moneyrank(interaction: discord.Interaction):
@@ -1246,11 +1247,18 @@ async def slash_moneyrank(interaction: discord.Interaction):
     )
     sorted_users = sorted(user_wallet.items(), key=lambda x: x[1], reverse=True)
     
-    rank_message = "おこずかいランキング（上位3名）:\n"
-    for i, (user_id, wallet) in enumerate(sorted_users[:3], start=1):
-        rank_message += f"{i}. ユーザー名: {user_id}, おこずかい: {wallet}\n"
+    rank_message = "おこづかいランキング（上位3名）:\n"
+    user_id = str(interaction.user.id)
+    user_rank = None
 
+    for i, (user_name, wallet) in enumerate(sorted_users[:3], start=1):
+        rank_message += f"{i}番のおかねもち {user_name}, {wallet}\n"
+        if user_name == user_id:
+            user_rank = i
     await interaction.response.send_message(rank_message)
+
+
+
     
 # keep_alive()
 # BOTの起動
