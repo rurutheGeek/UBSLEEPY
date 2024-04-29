@@ -17,8 +17,8 @@ import discord
 from discord.ext import tasks
 import pandas as pd
 import numpy as np
-import jaconv
-from dotenv import load_dotenv
+import jaconv # type: ignore
+from dotenv import load_dotenv # type: ignore
 
 # 分割されたモジュール
 import bot_module.func as ub
@@ -973,7 +973,300 @@ class quiz:
         log_df = pd.concat([nRow, log_df]).reset_index(drop=True)
         log_df.to_csv(logPath, mode="w", header=True, index=False)
 
+def format_text(input: str) -> str:
+  fixed = input
+  fixed = jaconv.hira2kata(fixed)
+  fixed = jaconv.h2z(fixed)
+  fixed = jaconv.z2h(fixed,kana=False, ascii=True, digit=True)
+  fixed = fixed.upper()
+  return fixed
 
+def fetch_pokemon(input: str) -> pd.DataFrame:
+  output_log(str(input)+"の図鑑データを検索します")
+  prefix_dict = {'A': 'アローラ', 'G': 'ガラル', 'H': 'ヒスイ', 'P': 'パルデア', 'M': 'メガ', '霊獣': 'れいじゅう', '化身': 'けしん', '古来': 'コライ', '未来': 'ミライ'} #変換辞書
+  fixedName = format_text(input)
+  if fixedName[0] in prefix_dict and re.match(r'[ァ-ヺー]+',fixedName[1:]): #入力文字列先頭を辞書で置換
+    fixedName = prefix_dict[fixedName[0]] + fixedName[1:]
+    
+  kata_breloom_df = GROBAL_BRELOOM_DF.iloc[:, 1:5].applymap(lambda x: jaconv.hira2kata(str(x))) #データベースをカタカナに
+  SearchedData = kata_breloom_df[(kata_breloom_df['おなまえ'] == fixedName) | (kata_breloom_df['インデックス1'] == fixedName) | (kata_breloom_df['インデックス2'] == fixedName) | (kata_breloom_df['インデックス3'] == fixedName)]
+  
+  if len(SearchedData) > 0:
+    return GROBAL_BRELOOM_DF.iloc[SearchedData.index]
+  else:
+    output_log(fixedName+"の図鑑データは見つかりませんでした")
+    return None
+
+
+def filterDataframe(filter_dict):
+  output_log("以下の条件でデータベースをフィルタリングします\n "+str(filter_dict))
+  filteredPokeData = GROBAL_BRELOOM_DF.copy()
+  for key, value in filter_dict.items():
+    if key == 'タイプ':
+      filteredPokeData = filteredPokeData[(filteredPokeData['タイプ1'].isin(value)) | (filteredPokeData['タイプ2'].isin(value))]
+    elif key == '特性':
+      filteredPokeData = filteredPokeData[(filteredPokeData['特性1'].isin(value)) | (filteredPokeData['特性2'].isin(value)) | (filteredPokeData['隠れ特性'].isin(value))]
+    elif value[0].isdecimal():
+      filteredPokeData = filteredPokeData[filteredPokeData[key].isin([int(v) for v in value])]
+    else:
+      filteredPokeData = filteredPokeData[filteredPokeData[key].isin(value)]
+  output_log("データのフィルタリングが完了しました 取得行数: "+str(filteredPokeData.shape[0]))
+  return filteredPokeData
+
+def show_calendar(day: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))) -> discord.Embed:
+  weak_dict = {0: "月", 1: "火", 2: "水", 3: "木", 4: "金", 5: "土", 6: "日"}
+  path = "resources/pokecalendar_breloom.csv"
+  calendarTitle = BALL_ICON
+  if day.date() == datetime.now(ZoneInfo("Asia/Tokyo")).date():
+    calendarTitle += f'{day.strftime("%Y/%m/%d")} ({weak_dict[day.weekday()]}) 今日のできごと'
+  else:
+    calendarTitle += f'{day.strftime("%m/%d")}のできごと'
+
+  history_df = pd.read_csv(path, encoding="utf-8")
+  history_df['日付'] = pd.to_datetime(history_df['日付'], format='%Y/%m/%d')
+  matched_rows = history_df[history_df['日付'].dt.strftime('%m/%d') == day.strftime('%m/%d')].fillna('')
+
+  thumbnailLink = ""
+  if len(matched_rows) > 0 :
+    calendarDescription = ""
+    for index, row in matched_rows.iterrows():
+      if row['プロパティ'] == '記念日':
+        calendarDescription += f"> **{row['できごと']}**\n"
+      else:
+        calendarDescription += f"> **{row['日付'].year}年 {row['できごと']}**\nあれから{day.year - row['日付'].year}年\n"
+      calendarDescription += f"関連リンク\n{row['関連リンク']}\n"
+    if not (eventPokemon := matched_rows.iloc[0]["関連ポケモン"])=="":
+      eventDexNum = fetch_pokemon(eventPokemon).iloc[0]["ぜんこくずかんナンバー"]
+      thumbnailLink = f"{EX_SOURCE_LINK}art/{eventDexNum}.png"
+  else:
+    calendarDescription = "なんにもない すばらしい 一日"
+    
+  createdEmbed = discord.Embed(
+    title=calendarTitle,
+    color=0x7ED321,
+    description=calendarDescription
+  )
+  createdEmbed.set_thumbnail(url=thumbnailLink)
+  createdEmbed.set_footer(text="No.17 カレンダー")
+
+  return createdEmbed
+
+
+def show_senryu(unique: bool = False) -> discord.Embed:
+  path = "resources/pokesenryu_breloom.csv"
+  senryu_df = pd.read_csv(path)
+  if unique:
+    if (senryu_df['チェック'] == True).all():
+      senryu_df['チェック'] = ''
+    selectedSenryu = senryu_df[~(senryu_df['チェック']==True)].sample().fillna('')
+    senryu_df.loc[selectedSenryu.index, 'チェック'] = True
+    senryu_df.to_csv(path, index=False)
+  else:
+    selectedSenryu = senryu_df.sample().fillna('')
+
+  createdEmbed = discord.Embed(
+    title=f'{"今日の" if unique else ""}ポケモン川柳',
+    color=0xF5A623,
+    description=f'''```md
+{selectedSenryu.iloc[0]['ポケモン川柳']}
+*{selectedSenryu.iloc[0]['出典']} {selectedSenryu.iloc[0]['登場作品']}*```
+{BALL_ICON}`みんなもポケモン ゲットじゃぞ!`'''
+  )
+
+  if not selectedSenryu.iloc[0]['登場ポケモン'] == '':
+    senryuPokeData = fetch_pokemon(selectedSenryu.iloc[0]['登場ポケモン'])
+    senryuDexNum = senryuPokeData.iloc[0]['ぜんこくずかんナンバー']
+    createdEmbed.set_thumbnail(url=f"{EX_SOURCE_LINK}art/{senryuDexNum}.png")
+    
+  return createdEmbed
+
+def report(userId, repoIndex: str, modifi: int) -> int:
+  reportPath='save/reports.csv'
+  reports = pd.read_csv(reportPath, index_col=0)
+  
+  if repoIndex not in reports.columns:
+    reports[repoIndex] = 0
+    reports.to_csv(reportPath, index=True, index_label="ユーザーID", float_format="%.0f")
+    output_log(f"新たな列を作成しました: {repoIndex}")
+    
+  # 指定されたユーザーIDが既に存在する場合はその行を参照し、そうでなければ新しい行を作成する
+  if userId in reports.index:
+    row = reports.loc[userId]
+  else:
+    user = client.get_user(userId)
+    row = pd.DataFrame([[0] * len(reports.columns)], columns=reports.columns, index=[userId])
+    #先頭列のID以外の初期値を入力
+    reports = reports.append(row)
+    reports.loc[userId, 'ユーザー名']=user.name
+    reports.loc[userId, 'クジびきけん']=1  # レポートに新しい行を追加
+    output_log("新たなレポートを作成しました")
+    
+  if not repoIndex in ['ユーザーID','ユーザー名'] and not modifi == 0 :
+    reports.loc[userId, repoIndex] += modifi
+    reports.to_csv(reportPath, index=True, index_label="ユーザーID", float_format="%.0f") # 編集したデータをCSVファイルに書き込む
+    output_log("レポートに書き込みました")
+  else:
+    output_log("レポートは変更されませんでした")
+  
+  return reports.loc[userId, repoIndex]
+
+async def on_button_click(interaction:discord.Interaction):
+    custom_id = interaction.data["custom_id"] #custom_id(インタラクションの識別子)を取り出す
+  
+    if custom_id == "authButton": #メンバー認証ボタン モーダルを送信する
+      output_log("学籍番号取得を実行します")
+      authModal = discord.ui.Modal(
+        title="メンバー認証",
+        timeout=None,
+        custom_id="authModal"
+      )
+      authInput = discord.ui.TextInput(
+        label="学籍番号",
+        placeholder="J111111",
+        min_length=7,
+        max_length=7,
+        custom_id="studentIdInput"
+      )
+      authModal.add_item(authInput)
+      favePokeInput = discord.ui.TextInput(
+        label="好きなポケモン(任意)",
+        placeholder="ヤブクロン",
+        required=False,
+        custom_id="favePokeInput"
+      )
+      authModal.add_item(favePokeInput)
+      await interaction.response.send_modal(authModal)
+      
+    elif custom_id.startswith("lotoIdButton"): #IDくじボタン
+      output_log("IDくじを実行します")
+      #カスタムIDは,"lotoIdButton:00000:0000/00/00"という形式
+      lotoId = custom_id.split(":")[1]
+      birth = custom_id.split(":")[2]
+      now = datetime.now(ZoneInfo("Asia/Tokyo"))
+      today = now.date()
+      if(now.hour < 5):
+        today = today - timedelta(days=1)
+      
+      if report(interaction.user.id,"クジびきけん",0) == 0:
+        await interaction.response.send_message("くじが ひけるのは 1日1回 まで なんだロ……",ephemeral=True)
+      elif not birth   == str(today):
+        await interaction.response.send_message(f'それは 今日のIDくじ じゃないロ{EXCLAMATION_ICON}',ephemeral=True)
+      else:
+        shun='''prize_dict = {
+          0: ["ほしのすな", 1500, "", "残念賞"],
+          1: ["きんのたま", 5000, f'やったロ{EXCLAMATION_ICON} 1ケタ おんなじロ{EXCLAMATION_ICON}', "4等"],
+          2: ["すいせいのかけら", 12500, f'2ケタが おんなじだったロミ{EXCLAMATION_ICON}', "3等"],
+          3: ["ガブリアスドール", 65000, f'ロミ{EXCLAMATION_ICON} 3ケタが おんなじロ{EXCLAMATION_ICON}', "2等"],
+          4: ["こだいのせきぞう", 200000, f'すごいロ{EXCLAMATION_ICON} 4ケタも おんなじロミ{EXCLAMATION_ICON}',"1等"],
+          5: ["たかそうなカード", 650000, f'ロミ~~{EXCLAMATION_ICON}{EXCLAMATION_ICON}{EXCLAMATION_ICON} 下5ケタ すべてが おんなじロ{EXCLAMATION_ICON}', "特等"],
+          6: ["きんのパッチールぞう", 1000000, "", ""]
+        }'''
+        userId = str(interaction.user.id)[-6:].zfill(5) #ID下6ケタを取得
+        
+        count = 0
+        for i in range(1, 6):
+          if userId[-i] == lotoId[-i]:
+            count += 1
+          else:
+            break
+        prize = PRIZE_DICT[count][0]
+        value = PRIZE_DICT[count][1]
+        text = PRIZE_DICT[count][2]
+        place = PRIZE_DICT[count][3]
+        
+        lotoEmbed = discord.Embed(
+          title=text,
+          color=0xff99c2,
+          description=f'{place}の 商品 **{prize}**をプレゼントだロ{BANGBANG_ICON}\nそれじゃあ またの 挑戦を お待ちしてるロ~~{EXCLAMATION_ICON}'
+        )
+        lotoEmbed.set_thumbnail(url=f'{EX_SOURCE_LINK}icon/{prize}.png')
+        lotoEmbed.add_field(
+          name=f'{interaction.user.name}は {prize}を 手に入れた!',
+          value=f'売却価格: {value}えん\nおこづかい: {report(interaction.user.id,"おこづかい",value)}えん',
+          inline=False
+        )
+        lotoEmbed.set_author(name=f'あなたのID: {userId}')
+        lotoEmbed.set_footer(text="No.15 IDくじ")
+        
+        report(interaction.user.id,"クジびきけん",-1) #クジの回数を減らす
+        await interaction.response.send_message(embed=lotoEmbed,ephemeral=True)
+        
+    elif custom_id.startswith("acq"):
+      await quiz("acq").try_response(interaction)
+
+@tasks.loop(seconds=60)
+async def daily_bonus(now : datetime = None):
+  if now is None:
+    now = datetime.now(ZoneInfo('Asia/Tokyo'))
+  if now.hour == 5 and now.minute == 0:
+    output_log("ジョブを実行します")
+    todayId = str(random.randint(0, 99999)).zfill(5)
+    
+    dairyIdEmbed=discord.Embed(
+      title="IDくじセンター 抽選コーナー",
+      color=0xff297e,
+      description=f'くじのナンバーと ユーザーIDが みごと あってると ステキな 景品を もらえちゃうんだロ{BANGBANG_ICON}'
+    )
+    dairyIdEmbed.add_field(
+      name=f'{BALL_ICON}今日のナンバー',
+      value=f'**{todayId}**',
+      inline=False
+    )
+    dairyIdEmbed.set_footer(text="No.15 IDくじ")
+
+    lotoButton = discord.ui.Button(label="くじをひく",style=discord.ButtonStyle.primary,custom_id=f'lotoIdButton:{todayId}:{datetime.now(ZoneInfo("Asia/Tokyo")).date()}')
+    dairyView = discord.ui.View()
+    dairyView.add_item(lotoButton)
+
+    lotoReset = pd.read_csv("save/reports.csv")
+    lotoReset["クジびきけん"] = 1
+    lotoReset.to_csv("save/reports.csv", index=False)
+    
+    dairyChannel = client.get_channel(DAIRY_CHANNEL_ID)
+    day=datetime.now(ZoneInfo("Asia/Tokyo"))
+    weak_dict={0: "月", 1: "火", 2: "水", 3: "木", 4: "金", 5: "土", 6: "日"}
+    await dairyChannel.send(f'日付が変わりました。 {day.strftime("%Y/%m/%d")} ({weak_dict[day.weekday()]})',embeds=[show_calendar(day),show_senryu(True),dairyIdEmbed],view=dairyView)
+
+import csv
+
+def load_wallet_data(file_path):
+    user_wallet = {}
+    with open(file_path, 'r', newline='', encoding='utf-8') as file:
+        reader = csv.DictReader(file)
+        for row in reader:
+            user_name = row['ユーザー名']
+            wallet = int(row['おこづかい'])
+            objid = row['ユーザーID']
+            user_wallet[user_name] = wallet
+    return user_wallet
+
+user_wallet = load_wallet_data('save/report.csv')
+
+# おこづかいランキングを表示するコマンド
+@tree.command(name="moneyrank", description="現在のおこづかいランキングTOP3を表示します")
+@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
+@discord.app_commands.describe()
+async def slash_moneyrank(interaction: discord.Interaction):
+    seiseiEmbed = discord.Embed(
+        title="**妖精さん けいさんチュウ**",
+        color=0xFFFFFF,  # デフォルトカラー
+        description=f"ちょっとまっち",
+    )
+    sorted_users = sorted(user_wallet.items(), key=lambda x: x[1], reverse=True)
+    
+    rank_message = "おこづかいランキング（上位3名）:\n"
+    user_id = str(interaction.user.id)
+    user_rank = None
+
+    for i, (user_name, wallet) in enumerate(sorted_users[:3], start=1):
+        rank_message += f"{i}番のおかねもち {user_name}, {wallet}\n"
+        if user_name == user_id:
+            user_rank = i
+    await interaction.response.send_message(rank_message)
+
+
+
+    
 # keep_alive()
 # BOTの起動
 load_dotenv()
