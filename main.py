@@ -1199,11 +1199,11 @@ async def daily_bonus(now: datetime = None):
 
 # おこづかいランキングを表示するコマンド
 @tree.command(
-    name="pocketMoney", description="おこづかいの残高照会をします"
+    name="pocketmoney", description="おこづかいの残高照会をします"
 )
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 @discord.app_commands.describe()
-async def slash_pocketMoney(interaction: discord.Interaction):
+async def slash_pocketmoney(interaction: discord.Interaction):
     user_id = interaction.user.id
     money = ub.report(user_id, "おこづかい", 0)
     df = pd.read_csv(REPORT_PATH, dtype={"ユーザーID": str})
@@ -1236,7 +1236,7 @@ async def slash_pocketMoney(interaction: discord.Interaction):
     ranking_list = top_users.values.tolist()
 
     pdwGuild = await client.fetch_guild(PDW_SERVER_ID, with_counts=True)
-    thumbnail = ub.attachment_file("resource/image/mom_johto.png")
+    author = ub.attachment_file("resource/image/mom_johto.png")
     embed = ub_embed.balance(
         userName=interaction.user.name,
         pocketMoney=money,
@@ -1244,11 +1244,11 @@ async def slash_pocketMoney(interaction: discord.Interaction):
         userRank=userRank,
         rank_list=ranking_list,
         sendTime=datetime.now(ZoneInfo("Asia/Tokyo")),
-        thumbnailPath=thumbnail[1],
+        authorPath=author[1],
     )
 
     await interaction.response.send_message(
-        file=thumbnail[0], embed=embed, ephemeral=True
+        file=author[0], embed=embed, ephemeral=True
     )
 
 
