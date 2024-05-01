@@ -78,6 +78,7 @@ os.chdir(PROJECT_ROOT)
 #
 REPORT_PATH ="save/report.csv"
 BSS_GRAPH_PATH = 'save/graph.png'
+NOTFOUND_IMAGE_PATH = 'resource/image/decamark.png'
 POKEDEX_PATH = "resource/pokedata_breloom.csv"
 POKECALENDAR_PATH = "resource/pokecalendar_breloom.csv"
 POKESENRYU_PATH = "resource/pokesenryu_breloom.csv"
