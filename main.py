@@ -22,24 +22,13 @@ import jaconv  # type: ignore
 from dotenv import load_dotenv  # type: ignore
 
 # 分割されたモジュール
+from bot_module.config import *
 import bot_module.func as ub
 import bot_module.embed as ub_embed
-from bot_module.config import *
-
 ####################################################################################################
-#引数'debug'が指定されているとき,デバッグモードで起動
-#if sys.argv[0] == "debug":
-#    DEBUG_MODE = True
-#    ub.output_log("デバッグモードで起動します")
 
-# 参照データ
 BQ_FILTERED_DF = GLOBAL_BRELOOM_DF.copy
 BQ_FILTER_DICT = {"進化段階": ["最終進化", "進化しない"]}
-
-QUIZ_PROCESSING_FLAG = 0  # クイズ処理中フラグ
-BAKUSOKU_MODE = True
-
-####################################################################################################
 
 tree = discord.app_commands.CommandTree(client)
 
@@ -47,9 +36,9 @@ tree = discord.app_commands.CommandTree(client)
 async def on_ready():  # bot起動時
     global BQ_FILTERED_DF
     if DEBUG_MODE:
-        output_log('".vscode/launch.json"のargsに"debug"が指定されています')
+        ub.output_log('debugモードで起動します')
     if len(GUILD_IDS) == 0:
-        output_log("登録済のサーバーが0個です")
+        ub.output_log("登録済のサーバーが0個です")
     else:
         syncGuildName = ""
         i = 0
@@ -57,30 +46,13 @@ async def on_ready():  # bot起動時
             syncGuildName += f"\n#{i} {client.get_guild(guild_id).name}"
             await tree.sync(guild=discord.Object(id=guild_id))
             i += 1
-        output_log(f"登録済のサーバーを{len(GUILD_IDS)}個読み込みました{syncGuildName}")
+        ub.output_log(f"登録済のサーバーを{len(GUILD_IDS)}個読み込みました{syncGuildName}")
 
     BQ_FILTERED_DF = ub.filter_dataframe(BQ_FILTER_DICT).fillna("なし")
 
-    output_log("botが起動しました")
+    ub.output_log("botが起動しました")
     if not post_logs.is_running():
         post_logs.start()
-
-
-def output_log(logStr):
-    """Botの動作ログをコンソールとLOG_CHANNELに出力する
-    Parameters:
-    ----------
-    logStr : str
-      出力するログの文字列
-    """
-    dt = datetime.now(ZoneInfo("Asia/Tokyo"))
-    logstr = f"[{dt.hour:02}:{dt.minute:02}:{dt.second:02}] {logStr}"
-    # ログをコンソールに表示する
-    print(logstr)
-    # ログをファイルに出力し,30秒ごとに投稿する
-    with open("log/system_log.txt", "a+", encoding="utf-8") as file:
-        file.write(logstr + "\n")
-
 
 @tasks.loop(seconds=30)
 async def post_logs():
@@ -96,7 +68,7 @@ async def post_logs():
         pass
 
 
-# スラッシュコマンド
+# スラッシュコマンド登録
 @tree.command(
     name="import", description="このサーバーにギルドコマンドをインポートします"
 )
@@ -112,7 +84,7 @@ async def slash_test(interaction: discord.Interaction):
             with open("config.json", "r") as file:
                 config_dict = json.load(file)
 
-            config_dict["guild_id"] = GUILD_IDS
+            config_dict["DEVELOP_ID_DICT"]["GUILD_IDS"] = GUILD_IDS
             with open("config.json", "w") as file:
                 json.dump(config_dict, file, indent=4)
                 await tree.sync(guild=discord.Object(id={interaction.guild.id}))
@@ -195,7 +167,7 @@ async def slash_quizrate(
         showId = interaction.user.id
         showName = interaction.user.name
 
-    output_log("戦績表示を実行します")
+    ub.output_log("戦績表示を実行します")
     w = ub.report(showId, f"{QUIZNAME_DICT[quizname]}正答", 0)
     l = ub.report(showId, f"{QUIZNAME_DICT[quizname]}誤答", 0)
     await interaction.response.send_message(
@@ -222,7 +194,7 @@ async def slash_bmode(interaction: discord.Interaction, mode: str = None):
         BAKUSOKU_MODE = False
     else:
         BAKUSOKU_MODE = not BAKUSOKU_MODE
-    output_log("爆速モードが" + str(BAKUSOKU_MODE) + "になりました")
+    ub.output_log("爆速モードが" + str(BAKUSOKU_MODE) + "になりました")
     await interaction.response.send_message(
         f"連続出題が{'ON' if BAKUSOKU_MODE else 'OFF'}になりました"
     )
@@ -300,7 +272,7 @@ async def on_message(message):
             BQ_FILTER_DICT.update(ub.make_filter_dict(bqFilterWords))
             BQ_FILTERED_DF = ub.filter_dataframe(BQ_FILTER_DICT).fillna("なし")
             response = "種族値クイズの出題条件が変更されました"
-            output_log("出題条件が更新されました")
+            ub.output_log("出題条件が更新されました")
 
         else:
             response = "現在の種族値クイズの出題条件は以下の通りです"
@@ -315,7 +287,7 @@ async def on_message(message):
             values = "\n".join(BQ_FILTER_DICT[key])
             bqFilteredEmbed.add_field(name=key, value=values, inline=False)
 
-        output_log("出題条件を表示します")
+        ub.output_log("出題条件を表示します")
         await message.channel.send(response, embed=bqFilteredEmbed)
 
     # リプライ(reference)に反応
@@ -340,7 +312,7 @@ async def on_message(message):
                 await quiz(embedFooterText.split()[3]).try_response(message)
 
             else:
-                output_log("botへのリプライは無視されました")
+                ub.output_log("botへのリプライは無視されました")
 
 
 # 新規メンバーが参加したときの処理
@@ -350,7 +322,7 @@ async def on_member_join(member):
         await member.add_roles(
             member.guild.get_role(UNKNOWN_ROLE_ID)
         )  # ロールがある場合に付与に変更
-        output_log(f"ロールを付与しました: {member.name}にID{UNKNOWN_ROLE_ID}")
+        ub.output_log(f"ロールを付与しました: {member.name}にID{UNKNOWN_ROLE_ID}")
         if helloCh := client.get_channel(HELLO_CHANNEL_ID):
             helloEmbed = discord.Embed(
                 title="メンバー認証ボタンを押して 学籍番号を送信してね",
@@ -383,15 +355,15 @@ async def on_member_join(member):
             await helloCh.send(
                 f"はじめまして! {member.mention}さん", embed=helloEmbed, view=helloView
             )
-            output_log(f"サーバーにメンバーが参加しました: {member.name}")
+            ub.output_log(f"サーバーにメンバーが参加しました: {member.name}")
         else:
-            output_log(f"チャンネルが見つかりません: {HELLO_CHANNEL_ID}")
+            ub.output_log(f"チャンネルが見つかりません: {HELLO_CHANNEL_ID}")
 
 
 @client.event
 async def on_interaction(interaction: discord.Interaction):
     if "custom_id" in interaction.data and interaction.data["custom_id"] == "authModal":
-        output_log("学籍番号を処理します")
+        ub.output_log("学籍番号を処理します")
         listPath = MEMBERDATA_PATH
         studentId = interaction.data["components"][0]["components"][0]["value"]
 
@@ -410,9 +382,9 @@ async def on_interaction(interaction: discord.Interaction):
             if role in member.roles:  # ロールを持っていれば削除
                 await member.remove_roles(role)
                 response += "\nサーバーが利用可能になりました"
-                output_log(f"学籍番号が登録されました\n {member.name}: {studentId}")
+                ub.output_log(f"学籍番号が登録されました\n {member.name}: {studentId}")
             else:
-                output_log(f"登録の修正を受け付けました\n {member.name}: {studentId}")
+                ub.output_log(f"登録の修正を受け付けました\n {member.name}: {studentId}")
             response += "\n`※このメッセージはあなたにしか表示されていません`"
 
             thanksEmbed = discord.Embed(
@@ -467,22 +439,22 @@ async def on_interaction(interaction: discord.Interaction):
 
                     member_df.to_csv(listPath, index=True, float_format="%.0f")
                     content = "照合に成功しました"
-                    output_log(
+                    ub.output_log(
                         f"サークルメンバー照合ができました\n {studentId}: {member.name}"
                     )
                 else:
-                    output_log(
+                    ub.output_log(
                         f"サークルメンバー照合ができませんでした\n {studentId}: {member.name}"
                     )
             else:
-                output_log(f"ファイルが存在しません: {listPath}")
+                ub.output_log(f"認証用   ファイルが存在しません: {listPath}")
 
             await interaction.response.send_message(
                 content, embed=thanksEmbed, ephemeral=True
             )
 
         else:  # 学籍番号が送信されなかった場合の処理
-            output_log(f"学籍番号として認識されませんでした: {studentId}")
+            ub.output_log(f"学籍番号として認識されませんでした: {studentId}")
             errorEmbed = discord.Embed(
                 title="401 Unauthorized",
                 color=0xFF0000,
@@ -512,7 +484,7 @@ async def on_interaction(interaction: discord.Interaction):
     elif (
         "component_type" in interaction.data and interaction.data["component_type"] == 2
     ):
-        output_log(
+        ub.output_log(
             f'buttonが押されました\n {interaction.user.name}: {interaction.data["custom_id"]}'
         )
         await on_button_click(interaction)
@@ -524,7 +496,7 @@ async def on_button_click(interaction: discord.Interaction):
     ]  # custom_id(インタラクションの識別子)を取り出す
 
     if custom_id == "authButton":  # メンバー認証ボタン モーダルを送信する
-        output_log("学籍番号取得を実行します")
+        ub.output_log("学籍番号取得を実行します")
         authModal = discord.ui.Modal(
             title="メンバー認証", timeout=None, custom_id="authModal"
         )
@@ -548,7 +520,7 @@ async def on_button_click(interaction: discord.Interaction):
 
 comeout = """
 elif custom_id.startswith("lotoIdButton"): #IDくじボタン
-      output_log("IDくじを実行します")
+      ub.output_log("IDくじを実行します")
       #カスタムIDは,"lotoIdButton:00000:0000/00/00"という形式
       lotoId = custom_id.split(":")[1]
       birth = custom_id.split(":")[2]
@@ -611,7 +583,7 @@ class quiz:
         self.quizName = quizName
 
     async def post(self, sendChannel):
-        output_log(f"{self.quizName}: クイズを出題します")
+        ub.output_log(f"{self.quizName}: クイズを出題します")
 
         quizContent = None
         quizFile = None
@@ -708,7 +680,7 @@ class quiz:
             quizEmbed.description = f"{qDatas['中国語繁体']} -> [?]"
 
         else:
-            output_log(f"不明なクイズ識別子(post): {self.quizName}")
+            ub.output_log(f"不明なクイズ識別子(post): {self.quizName}")
             # ここでエラーを送信
             return
 
@@ -718,7 +690,7 @@ class quiz:
 
     async def try_response(self, response):
         if QUIZ_PROCESSING_FLAG == 1:
-            output_log(f"{self.quizName}: 応答処理実行中につき処理を中断")
+            ub.output_log(f"{self.quizName}: 応答処理実行中につき処理を中断")
             return
 
         # インスタンスがメッセージ/インタラクションかどうかで代入データを変える
@@ -791,14 +763,14 @@ class quiz:
             await self.__judge()
 
     async def __giveup(self):
-        output_log(f"{self.quizName}: ギブアップを実行")
+        ub.output_log(f"{self.quizName}: ギブアップを実行")
         if isinstance(self.rm, discord.Message):
             await self.rm.add_reaction("😅")
             await self.rm.reply(f"答えは{self.ansList[0]}でした")
         await self.__disclose(False)
 
     async def __judge(self):
-        output_log(f"{self.quizName}: 正誤判定を実行")
+        ub.output_log(f"{self.quizName}: 正誤判定を実行")
 
         fixAns = self.ansText
         if self.quizName in ["bq", "etojq", "ctojq"]:
@@ -859,7 +831,7 @@ class quiz:
         self.__log(judge, self.ansList[0])
 
     async def __hint(self):
-        output_log(f"{self.quizName}: ヒント表示を実行")
+        ub.output_log(f"{self.quizName}: ヒント表示を実行")
 
         if self.quizName in ["bq", "etojq", "ctojq"]:
             if (
@@ -936,7 +908,7 @@ class quiz:
                 hintValue = self.ansZero["英語名"][0:1]
 
         else:
-            output_log(f"不明なクイズ識別子(hint): {self.quizName}")
+            ub.output_log(f"不明なクイズ識別子(hint): {self.quizName}")
             return
 
         # 初出のヒントならEmbedにフィールドを追加
@@ -951,7 +923,7 @@ class quiz:
 
     async def __disclose(self, tf, answered=None):
         global QUIZ_PROCESSING_FLAG
-        output_log(f"{self.quizName}: 回答開示を実行")
+        ub.output_log(f"{self.quizName}: 回答開示を実行")
         QUIZ_PROCESSING_FLAG = 1  # 回答開示処理を始める
 
         if tf:  # 正解者がいる場合
@@ -1028,7 +1000,7 @@ class quiz:
 
     async def __continue(self):
         if BAKUSOKU_MODE:
-            output_log(f"{self.quizName}: 連続出題を実行")
+            ub.output_log(f"{self.quizName}: 連続出題を実行")
             loadingEmbed = discord.Embed(
                 title="**BAKUSOKU MODE ON**",
                 color=0x0000FF,
@@ -1039,7 +1011,7 @@ class quiz:
             await loadMessage.delete()
 
     def __answers(self):
-        output_log(f"{self.quizName}: 正答リスト生成を実行")
+        ub.output_log(f"{self.quizName}: 正答リスト生成を実行")
         answers = []
         aData = None
 
@@ -1084,13 +1056,13 @@ class quiz:
             answers.append(str(aData["おなまえ"]))
 
         else:
-            output_log(f"不明なクイズ識別子(answers): {self.quizName}")
+            ub.output_log(f"不明なクイズ識別子(answers): {self.quizName}")
             return
 
         return answers, aData  # 正答のリストと0番目の正答をタプルで返す
 
     def __shotgun(self, filter_dict):
-        output_log(f"{self.quizName}: ランダム選択を実行")
+        ub.output_log(f"{self.quizName}: ランダム選択を実行")
         filteredPokeData = ub.filter_dataframe(filter_dict)  # .fillna('なし')
         selectedPokeData = filteredPokeData.iloc[
             random.randint(0, filteredPokeData.shape[0] - 1)
@@ -1098,11 +1070,11 @@ class quiz:
         if selectedPokeData is not None:
             return selectedPokeData
         else:
-            output_log(f"{self.quizName}: ERROR 正常にランダム選択できませんでした")
+            ub.output_log(f"{self.quizName}: ERROR 正常にランダム選択できませんでした")
             return None
 
     def __imageLink(self, searchWord=None):
-        output_log(f"{self.quizName}: 画像リンク生成を実行")
+        ub.output_log(f"{self.quizName}: 画像リンク生成を実行")
         link = f"{EX_SOURCE_LINK}Decamark.png"  # デフォルトは(?)マーク
         if searchWord is not None:
             if self.quizName in ["bq", "acq", "etojq", "jtoeq", "ctojq"]:
@@ -1110,12 +1082,12 @@ class quiz:
                 if displayImage is not None:  # 回答ポケモンが発見できた場合
                     link = f"{EX_SOURCE_LINK}art/{displayImage.iloc[0]['ぜんこくずかんナンバー']}.png"
             else:
-                output_log(f"不明なクイズ識別子(imageLink): {self.quizName}")
+                ub.output_log(f"不明なクイズ識別子(imageLink): {self.quizName}")
         return link
 
     def __log(self, judge, exAns):
         logPath = f"log/{self.quizName}log.csv"
-        output_log(f"{self.quizName}: log生成を実行\n {logPath}")
+        ub.output_log(f"{self.quizName}: log生成を実行\n {logPath}")
 
         if os.path.exists(logPath):
             log_df = pd.read_csv(logPath)
@@ -1140,7 +1112,7 @@ async def daily_bonus(now: datetime = None):
     if now is None:
         now = datetime.now(ZoneInfo("Asia/Tokyo"))
     if now.hour == 5 and now.minute == 0:
-        output_log("ジョブを実行します")
+        ub.output_log("ジョブを実行します")
         todayId = str(random.randint(0, 99999)).zfill(5)
 
         dairyIdEmbed = discord.Embed(

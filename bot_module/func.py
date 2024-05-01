@@ -24,19 +24,24 @@ def output_log(logStr):
       出力するログの文字列
     """
     dt = datetime.now(ZoneInfo("Asia/Tokyo"))
-    logstr = f"[{dt.hour:02}:{dt.minute:02}:{dt.second:02}] {logStr}"
+    logstr = f"[{dt.hour:02}:{dt.minute:02}:{dt.second:02}|{os.getlogin()}] {logStr}"
     # ログをコンソールに表示する
     print(logstr)
     # ログをファイルに出力し,30秒ごとに投稿する
-    with open("log/system_log.txt", "a+", encoding="utf-8") as file:
+    with open(SYSTEMLOG_PATH, "a+", encoding="utf-8") as file:
         file.write(logstr + "\n")
 
 def format_text(input: str) -> str:
-  '''テキストの整形を行う
+  '''テキストの整形(あｱＡa>アアAA)を行う
   Parameters:
   ----------
   input : str
     変換元テキスト
+
+  Returns:
+  ----------
+  fixed : str
+    変換後テキスト
   '''
   fixed = input
   # ひらがなをカタカナに変換
