@@ -1,6 +1,175 @@
 {
+    "developer_user_id": 563436616811675658,
+    "developer_guild_id": "1140787268370583634",
     "guild_id": [
         1140787268370583634,
         1067125843647791114
-    ]
+    ],
+    "guild_dict": {
+        "1067125843647791114": {
+            "guild_name": "ポーガクインドリームワールド",
+            "debug_channel_id": 1081568799624536085,
+            "guideline_channel_id": 1067423922477355048,
+            "stage_channel_id": 1088518773461491892,
+            "dairy_channel_id": 1082026583109419018,
+            "hello_channel_id": 1067125844465688637,
+            "reactionrole_channel_id": 1068903858790731807,
+            "callstatus_channel_id": 1089708019677409330,
+            "log_channel_id": 1140787559325249717,
+            "unknown_role_id": 1083312357226336307,
+            "stagehost_role_id": 1079328119992893490,
+            "menymoney_role_id": 1234064125030699041
+        },
+        "1140787268370583634":{
+            "guild_name": "エーテルル財団",
+            "debug_channel_id": 1140787559325249717,
+            "guideline_channel_id": 1140787559325249717,
+            "stage_channel_id": 1140787559325249717,
+            "dairy_channel_id": 1140787559325249717,
+            "hello_channel_id": 1140787559325249717,
+            "reactionrole_channel_id": 1140787559325249717,
+            "callstatus_channel_id": 1140787559325249717,
+            "log_channel_id": 1140787559325249717,
+            "unknown_role_id": 1232940951249616967,
+            "stagehost_role_id": 1232940951249616967,
+            "menymoney_role_id": 1232940951249616967
+        }
+    },
+    "emoji_id_dict": {
+        "ball_icon": "<:bullet:1077833761313525820> ",
+        "bangbang_icon": "<:unown_bangbang:1095570764415123508>",
+        "exclamation_icon": "<:unown_exclamation:1095570767984480489>"
+    },
+    "path_dict": {
+        "report_path": "save/report.csv",
+        "bss_graph_path": "save/graph.png",
+        "notfound_image_path": "resource/image/decamark.png",
+        "pokedex_path": "resource/pokedata_breloom.csv",
+        "pokecalendar_path": "resource/pokecalendar_breloom.csv",
+        "pokesenryu_path": "resource/pokesenryu_breloom.csv",
+        "feedback_path": "save/feedback.csv",
+        "memory_path": "save/restmemorychannel.csv",
+        "calldata_path": "save/busychannel.csv",
+        "memberdata_path": "resource/member_breloom.csv",
+        "memberlist_path": "save/studentid.csv",
+        "calllog_path": "log/calllog.csv"
+    },
+    "link_dict": {
+        "ex_source_link": "https://pokecries.nobody.jp/content/resources/"
+    },
+    "system_dict_dict":{
+        "quizname_dict": {
+            "種族値クイズ": "bq",
+            "物理特殊クイズ": "acq",
+            "英和翻訳クイズ": "etojq",
+            "和英翻訳クイズ": "jtoeq",
+            "中日翻訳クイズ": "ctojq"
+        },
+        "pokename_prefix_dict": {
+            "A": "アローラ",
+            "G": "ガラル",
+            "H": "ヒスイ",
+            "P": "パルデア",
+            "M": "メガ",
+            "霊獣": "れいじゅう",
+            "化身": "けしん",
+            "古来": "コライ",
+            "未来": "ミライ"
+        },
+        "base_stats_dict": {
+            "H": "HP",
+            "HP": "HP",
+            "A": "こうげき",
+            "攻撃": "こうげき",
+            "こうげき": "こうげき",
+            "B": "ぼうぎょ",
+            "防御": "ぼうぎょ",
+            "ぼうぎょ": "ぼうぎょ",
+            "C": "とくこう",
+            "特攻": "とくこう",
+            "とくこう": "とくこう",
+            "D": "とくぼう",
+            "特防": "とくぼう",
+            "とくぼう": "とくぼう",
+            "S": "すばやさ",
+            "素早さ": "すばやさ",
+            "すばやさ": "すばやさ",
+            "T": "合計",
+            "ごうけい": "合計",
+            "合計": "合計"
+        },
+        "weak_dict": {
+            "0": "月",
+            "1": "火",
+            "2": "水",
+            "3": "木",
+            "4": "金",
+            "5": "土",
+            "6": "日"
+        },
+        "type_color_dict": {
+            "ノーマル": 14474460,
+            "ほのお": 16711680,
+            "みず": 255,
+            "くさ": 3394560,
+            "こおり": 65535,
+            "かくとう": 16753920,
+            "どく": 16711935,
+            "じめん": 12171660,
+            "ひこう": 13047160,
+            "エスパー": 16515305,
+            "むし": 10079296,
+            "いわ": 8600489,
+            "ゴースト": 4782082,
+            "ドラゴン": 7987726,
+            "あく": 25560,
+            "はがね": 13421772,
+            "でんき": 16773132,
+            "フェアリー": 16773333
+        },
+        "prize_dict": {
+            "0": [
+                "ほしのすな",
+                1500,
+                "",
+                "残念賞"
+            ],
+            "1": [
+                "きんのたま",
+                5000,
+                "やったロ❗ 1ケタ おんなじロ❗",
+                "4等"
+            ],
+            "2": [
+                "すいせいのかけら",
+                12500,
+                "2ケタが おんなじだったロミ❗",
+                "3等"
+            ],
+            "3": [
+                "ガブリアスドール",
+                65000,
+                "ロミ❗ 3ケタが おんなじロ❗",
+                "2等"
+            ],
+            "4": [
+                "こだいのせきぞう",
+                200000,
+                "すごいロ❗ 4ケタも おんなじロミ❗",
+                "1等"
+            ],
+            "5": [
+                "たかそうなカード",
+                650000,
+                "ロミ~~❗❗❗ 下5ケタ すべてが おんなじロ❗",
+                "特等"
+            ],
+            "6": [
+                "きんのパッチールぞう",
+                1000000,
+                "",
+                ""
+            ]
+        }
+    }
 }

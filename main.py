@@ -4,6 +4,7 @@
 
 # 標準ライブラリ
 import os
+#import sys
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import random
@@ -25,54 +26,28 @@ import bot_module.func as ub
 import bot_module.embed as ub_embed
 from bot_module.config import *
 
-# """デバッグ用設定
-LOG_CHANNEL_ID = 1140787559325249717  # ログを出力するチャンネルのIDに変更
-# PDW_SERVER_ID = DEV_SERVER_ID  # 開発しているサーバーのIDに変更
-DEBUG_CHANNEL_ID = LOG_CHANNEL_ID
-GUIDELINE_CHANNEL_ID = LOG_CHANNEL_ID
-STAGE_CHANNEL_ID = LOG_CHANNEL_ID
-DAIRY_CHANNEL_ID = LOG_CHANNEL_ID
-CALLSTATUS_CHANNEL_ID = LOG_CHANNEL_ID
-# UNKNOWN_ROLE_ID = 1232940951249616967
-# HELLO_CHANNEL_ID = LOG_CHANNEL_ID
-# """
-
+####################################################################################################
+#引数'debug'が指定されているとき,デバッグモードで起動
+#if sys.argv[0] == "debug":
+#    DEBUG_MODE = True
+#    ub.output_log("デバッグモードで起動します")
 
 # 参照データ
-BQ_FILTERED_DF = GROBAL_BRELOOM_DF.copy
+BQ_FILTERED_DF = GLOBAL_BRELOOM_DF.copy
 BQ_FILTER_DICT = {"進化段階": ["最終進化", "進化しない"]}
 
 QUIZ_PROCESSING_FLAG = 0  # クイズ処理中フラグ
 BAKUSOKU_MODE = True
-####
 
-# config.jsonを読み込む
-config_dict = []
-try:
-    with open("config.json", "r") as file:
-        config_dict = json.load(file)
-except FileNotFoundError:
-    with open("document/default_config.json", "r") as default_config:
-        config_dict = json.load(default_config)
-# 登録されたサーバーのギルドIDのリストを取得
-GUILD_IDS = config_dict.get("guild_id", [])
-
+####################################################################################################
 
 tree = discord.app_commands.CommandTree(client)
-
 
 @client.event
 async def on_ready():  # bot起動時
     global BQ_FILTERED_DF
-
-    # config.jsonが見つからない場合新規作成する
-    try:
-        with open("config.json", mode="x") as file:
-            output_log("config.json ファイルが見つかりません。新規作成します。")
-            json.dump(config_dict, file, indent=4)
-    except FileExistsError:
-        pass
-
+    if DEBUG_MODE:
+        output_log('引数に"debug"が指定されました')
     if len(GUILD_IDS) == 0:
         output_log("登録済のサーバーが0個です")
     else:
@@ -134,6 +109,9 @@ async def slash_test(interaction: discord.Interaction):
         else:
             GUILD_IDS.append(interaction.guild.id)
             # config.jsonに追加
+            with open("config.json", "r") as file:
+                config_dict = json.load(file)
+
             config_dict["guild_id"] = GUILD_IDS
             with open("config.json", "w") as file:
                 json.dump(config_dict, file, indent=4)
@@ -414,7 +392,7 @@ async def on_member_join(member):
 async def on_interaction(interaction: discord.Interaction):
     if "custom_id" in interaction.data and interaction.data["custom_id"] == "authModal":
         output_log("学籍番号を処理します")
-        listPath = "resource/member_breloom.csv"
+        listPath = MEMBERDATA_PATH
         studentId = interaction.data["components"][0]["components"][0]["value"]
 
         if (
@@ -460,10 +438,10 @@ async def on_interaction(interaction: discord.Interaction):
             }
             df = pd.DataFrame(authData)
             df.to_csv(
-                "save/studentid.csv",
+                MEMBERLIST_PATH,
                 mode="a",
                 index=False,
-                header=not os.path.exists("save/studentid.csv"),
+                header=not os.path.exists(MEMBERLIST_PATH),
             )
 
             content = "照合に失敗しました ?\n※メンバーリストにまだ学籍番号のデータがない可能性があります"
@@ -858,8 +836,8 @@ class quiz:
             and self.quizName == "jtoeq"
             and len(
                 (
-                    poke := GROBAL_BRELOOM_DF[
-                        GROBAL_BRELOOM_DF["英語名"].str.lower() == fixAns
+                    poke := GLOBAL_BRELOOM_DF[
+                        GLOBAL_BRELOOM_DF["英語名"].str.lower() == fixAns
                     ]
                 )
             )
@@ -1067,13 +1045,13 @@ class quiz:
 
         if self.quizName == "bq":
             H, A, B, C, D, S = map(int, self.examText.split("-"))
-            aDatas = GROBAL_BRELOOM_DF.loc[
-                (GROBAL_BRELOOM_DF["HP"] == H)
-                & (GROBAL_BRELOOM_DF["こうげき"] == A)
-                & (GROBAL_BRELOOM_DF["ぼうぎょ"] == B)
-                & (GROBAL_BRELOOM_DF["とくこう"] == C)
-                & (GROBAL_BRELOOM_DF["とくぼう"] == D)
-                & (GROBAL_BRELOOM_DF["すばやさ"] == S)
+            aDatas = GLOBAL_BRELOOM_DF.loc[
+                (GLOBAL_BRELOOM_DF["HP"] == H)
+                & (GLOBAL_BRELOOM_DF["こうげき"] == A)
+                & (GLOBAL_BRELOOM_DF["ぼうぎょ"] == B)
+                & (GLOBAL_BRELOOM_DF["とくこう"] == C)
+                & (GLOBAL_BRELOOM_DF["とくぼう"] == D)
+                & (GLOBAL_BRELOOM_DF["すばやさ"] == S)
             ]
             aData = aDatas.iloc[0]
             for index, row in aDatas.iterrows():
@@ -1091,7 +1069,7 @@ class quiz:
                 answers.append("とくこう")
 
         elif self.quizName == "etojq":
-            aDatas = GROBAL_BRELOOM_DF[GROBAL_BRELOOM_DF["英語名"] == self.examText]
+            aDatas = GLOBAL_BRELOOM_DF[GLOBAL_BRELOOM_DF["英語名"] == self.examText]
             aData = aDatas.iloc[0]
             answers.append(str(aData["おなまえ"]))
 
@@ -1101,7 +1079,7 @@ class quiz:
             answers.append(str(aData["英語名"]))
 
         elif self.quizName == "ctojq":
-            aDatas = GROBAL_BRELOOM_DF[GROBAL_BRELOOM_DF["中国語繁体"] == self.examText]
+            aDatas = GLOBAL_BRELOOM_DF[GLOBAL_BRELOOM_DF["中国語繁体"] == self.examText]
             aData = aDatas.iloc[0]
             answers.append(str(aData["おなまえ"]))
 
@@ -1192,7 +1170,7 @@ async def daily_bonus(now: datetime = None):
         weak_dict = {0: "月", 1: "火", 2: "水", 3: "木", 4: "金", 5: "土", 6: "日"}
         await dairyChannel.send(
             f'日付が変わりました。 {day.strftime("%Y/%m/%d")} ({weak_dict[day.weekday()]})',
-            embeds=[show_calendar(day), show_senryu(True), dairyIdEmbed],
+            embeds=[ub.show_calendar(day), ub.show_senryu(True), dairyIdEmbed],
             view=dairyView,
         )
 
