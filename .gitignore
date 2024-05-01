@@ -10,7 +10,6 @@
 
 #ログファイルは競合するので共有しない
 /log
-nohup.out
 #レポートは同期しない
 /save/report.csv
 
