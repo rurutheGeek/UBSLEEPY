@@ -66,11 +66,11 @@ def fetch_pokemon(input: str) -> pd.DataFrame:
     fixedName = POKENAME_PREFIX_DICT[fixedName[0]] + fixedName[1:]
 
   # データベースをカタカナに
-  kata_breloom_df = GROBAL_BRELOOM_DF.iloc[:, 1:5].applymap(lambda x: jaconv.hira2kata(str(x)))
+  kata_breloom_df = GLOBAL_BRELOOM_DF.iloc[:, 1:5].applymap(lambda x: jaconv.hira2kata(str(x)))
   SearchedData = kata_breloom_df[(kata_breloom_df['おなまえ'] == fixedName) | (kata_breloom_df['インデックス1'] == fixedName) | (kata_breloom_df['インデックス2'] == fixedName) | (kata_breloom_df['インデックス3'] == fixedName)]
   
   if len(SearchedData) > 0:
-    return GROBAL_BRELOOM_DF.iloc[SearchedData.index]
+    return GLOBAL_BRELOOM_DF.iloc[SearchedData.index]
   else:
     output_log(fixedName+"の図鑑データは見つかりませんでした")
     return None
@@ -84,7 +84,7 @@ def filter_dataframe(filter_dict):
     フィルタリング条件の辞書
   '''
   output_log("以下の条件でデータベースをフィルタリングします\n "+str(filter_dict))
-  filteredPokeData = GROBAL_BRELOOM_DF.copy()
+  filteredPokeData = GLOBAL_BRELOOM_DF.copy()
   
   for key, value in filter_dict.items():
     if key == 'タイプ':
@@ -248,13 +248,13 @@ def make_filter_dict(values: list[str]) -> dict[str,str]:
   new_dict={}
   #valueがどのインデックスに該当するか検索
   for i in range(len(values)):
-    if values[i] in GROBAL_BRELOOM_DF['進化段階'].unique().tolist():
+    if values[i] in GLOBAL_BRELOOM_DF['進化段階'].unique().tolist():
       dictIndex='進化段階'
     elif values[i] in ['1','2','3','4','5','6','7','8','9']:
       dictIndex='初登場世代'
-    elif values[i] in GROBAL_BRELOOM_DF['出身地'].unique().tolist():
+    elif values[i] in GLOBAL_BRELOOM_DF['出身地'].unique().tolist():
       dictIndex='出身地'
-    elif values[i] in GROBAL_BRELOOM_DF['タイプ1'].unique().tolist():
+    elif values[i] in GLOBAL_BRELOOM_DF['タイプ1'].unique().tolist():
       dictIndex='タイプ'
     elif values[i].upper().startswith(tuple(BASE_STATS_DICT.keys())):
       for key in BASE_STATS_DICT.keys():
@@ -262,7 +262,7 @@ def make_filter_dict(values: list[str]) -> dict[str,str]:
           dictIndex = BASE_STATS_DICT[key]
           values[i] = values[i][len(key):]  # 数字の部分だけを抜き出す
           break
-    elif values[i] in np.unique(GROBAL_BRELOOM_DF[['特性1','特性2','隠れ特性']].astype(str).values.ravel()):
+    elif values[i] in np.unique(GLOBAL_BRELOOM_DF[['特性1','特性2','隠れ特性']].astype(str).values.ravel()):
       dictIndex='特性'
     else:
       continue

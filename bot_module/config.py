@@ -1,92 +1,145 @@
 ﻿# -*- coding: utf-8 -*-
 # config.py
-
 import os
 import discord
 import pandas as pd
+import json
+import sys
 
-#client
-#activity = discord.Activity(name='キノコのほうし', type=discord.ActivityType.playing)
+
+# activity = discord.Activity(name='キノコのほうし', type=discord.ActivityType.playing)
 activity = discord.Activity(name="研修チュウ", type=discord.ActivityType.unknown)
-client = discord.Client(intents=discord.Intents.all(),activity=activity)
+client = discord.Client(intents=discord.Intents.all(), activity=activity)
 
-##サーバーID
-PDW_SERVER_ID = 1067125843647791114
-DEV_SERVER_ID = 1140787268370583634
-SERVER_IDS = [PDW_SERVER_ID, DEV_SERVER_ID]
-##チャンネルID
-DEBUG_CHANNEL_ID = 1081568799624536085
-GUIDELINE_CHANNEL_ID = 1067423922477355048
-REACTIONROLE_CHANNEL_ID = 1068903858790731807
-STAGE_CHANNEL_ID = 1088518773461491892
-DAIRY_CHANNEL_ID = 1082026583109419018
-HELLO_CHANNEL_ID = 1067125844465688637
-CALLSTATUS_CHANNEL_ID = 1089708019677409330
-LOG_CHANNEL_ID = 1140787559325249717
-##ユーザーID
-DEVELOPER_USER_ID = 563436616811675658
-##ロールID
-UNKNOWN_ROLE_ID = 1083312357226336307
-STAGEHOST_ROLE_ID = 1079328119992893490
-MENYMONEY_ROLE_ID = 1234064125030699041
-## 絵文字コード
-BALL_ICON = '<:bullet:1077833761313525820> '
-BANGBANG_ICON='<:unown_bangbang:1095570764415123508>' 
-EXCLAMATION_ICON='<:unown_exclamation:1095570767984480489>'
+# main.pyのディレクトリに移動
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-#URL
-EX_SOURCE_LINK = "https://pokecries.nobody.jp/content/resources/"
+# globalsでグローバル変数を用意
+globals().update(
+    {
+        "DEVELOPER_USER_ID": "",
+        "GUILD_IDS": [],
+        "PDW_SERVER_ID": "",
+        "DEBUG_MODE": False,
+        "DEBUG_CHANNEL_ID": "",
+        "GUIDELINE_CHANNEL_ID": "",
+        "REACTIONROLE_CHANNEL_ID": "",
+        "STAGE_CHANNEL_ID": "",
+        "DAIRY_CHANNEL_ID": "",
+        "HELLO_CHANNEL_ID": "",
+        "CALLSTATUS_CHANNEL_ID": "",
+        "LOG_CHANNEL_ID": "",
+        "UNKNOWN_ROLE_ID": "",
+        "STAGEHOST_ROLE_ID": "",
+        "MENYMONEY_ROLE_ID": "",
+        "BALL_ICON": "",
+        "BANGBANG_ICON": "",
+        "EXCLAMATION_ICON": "",
+        "EX_SOURCE_LINK": "",
+        "REPORT_PATH": "",
+        "BSS_GRAPH_PATH": "",
+        "NOTFOUND_IMAGE_PATH": "",
+        "POKEDEX_PATH": "",
+        "POKECALENDAR_PATH": "",
+        "POKESENRYU_PATH": "",
+        "FEEDBACK_PATH": "",
+        "MEMORY_PATH": "",
+        "CALLDATA_PATH": "",
+        "MEMBERDATA_PATH": "",
+        "MEMBERLIST_PATH": "",
+        "CALLLOG_PATH": "",
+        "QUIZNAME_DICT": {},
+        "POKENAME_PREFIX_DICT": {},
+        "BASE_STATS_DICT": {},
+        "WEAK_DICT": {},
+        "TYPE_COLOR_DICT": {},
+        "PRIZE_DICT": {},
+        "GLOBAL_BRELOOM_DF": pd.DataFrame(),
+    }
+)
 
-## 各種辞書データ
-# クイズ名を識別子に変換する辞書(スラッシュコマンドも更新される)
-QUIZNAME_DICT={"種族値クイズ": "bq","物理特殊クイズ": "acq","英和翻訳クイズ": "etojq","和英翻訳クイズ": "jtoeq","中日翻訳クイズ": "ctojq"}
-# fetch_pokemonで使用
-POKENAME_PREFIX_DICT = {'A': 'アローラ', 'G': 'ガラル', 'H': 'ヒスイ', 'P': 'パルデア', 'M': 'メガ', '霊獣': 'れいじゅう', '化身': 'けしん', '古来': 'コライ', '未来': 'ミライ'}
-# make_filter_dictで使用
-BASE_STATS_DICT = {
-'H': 'HP', 'HP': 'HP',
-'A': 'こうげき', '攻撃': 'こうげき', 'こうげき': 'こうげき',
-'B': 'ぼうぎょ', '防御': 'ぼうぎょ', 'ぼうぎょ': 'ぼうぎょ',
-'C': 'とくこう', '特攻': 'とくこう', 'とくこう': 'とくこう',
-'D': 'とくぼう', '特防': 'とくぼう', 'とくぼう': 'とくぼう',
-'S': 'すばやさ', '素早さ': 'すばやさ', 'すばやさ': 'すばやさ',
-'T': '合計', 'ごうけい': '合計', '合計': '合計'
-}
-# show_calendarで使用
-WEAK_DICT = {0: "月", 1: "火", 2: "水", 3: "木", 4: "金", 5: "土", 6: "日"}
-TYPE_COLOR_DICT = {
-      'ノーマル': 0xdcdcdc,'ほのお': 0xff4500,'みず': 0x0000ff,'くさ': 0x32cd32,
-      'こおり': 0x00ffff,'かくとう': 0xffa500,'どく': 0xff00ff,'じめん': 0xBBA48C,
-      'ひこう': 0xC9DAF8,'エスパー': 0xFCDDE9,'むし': 0x98fb98,'いわ': 0xd2691e,
-      'ゴースト': 0x4b0082,'ドラゴン': 0x7b68ee,'あく': 0x191970,'はがね': 0xCCCCCC,
-      'でんき': 0xFFF2CC,'フェアリー': 0xFFF0F5
-}
-PRIZE_DICT = {
-          0: ["ほしのすな", 1500, "", "残念賞"],
-          1: ["きんのたま", 5000, f'やったロ{EXCLAMATION_ICON} 1ケタ おんなじロ{EXCLAMATION_ICON}', "4等"],
-          2: ["すいせいのかけら", 12500, f'2ケタが おんなじだったロミ{EXCLAMATION_ICON}', "3等"],
-          3: ["ガブリアスドール", 65000, f'ロミ{EXCLAMATION_ICON} 3ケタが おんなじロ{EXCLAMATION_ICON}', "2等"],
-          4: ["こだいのせきぞう", 200000, f'すごいロ{EXCLAMATION_ICON} 4ケタも おんなじロミ{EXCLAMATION_ICON}',"1等"],
-          5: ["たかそうなカード", 650000, f'ロミ~~{EXCLAMATION_ICON}{EXCLAMATION_ICON}{EXCLAMATION_ICON} 下5ケタ すべてが おんなじロ{EXCLAMATION_ICON}', "特等"],
-          6: ["きんのパッチールぞう", 1000000, "", ""]
-}
 
-## 各種ファイルのパス
-# main.pyのディレクトリ
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))#os.getcwd()#os.path.dirname(os.path.abspath(__file__))
-os.chdir(PROJECT_ROOT)
-#
-REPORT_PATH ="save/report.csv"
-BSS_GRAPH_PATH = 'save/graph.png'
-NOTFOUND_IMAGE_PATH = 'resource/image/decamark.png'
-POKEDEX_PATH = "resource/pokedata_breloom.csv"
-POKECALENDAR_PATH = "resource/pokecalendar_breloom.csv"
-POKESENRYU_PATH = "resource/pokesenryu_breloom.csv"
-FEEDBACK_PATH = "save/feedback.csv"
-MEMORY_PATH = "save/restMemorychannel.csv"
-CALLDATA_PATH = "save/busychannel.csv"
-MEMBERDATA_PATH = "resource/member_breloom.csv"
-CALLLOG_PATH = "log/calllog.csv"
-#グローバルずかんデータ
-GROBAL_BRELOOM_DF = pd.read_csv(POKEDEX_PATH)
-GROBAL_BRELOOM_DF['ぜんこくずかんナンバー'] = GROBAL_BRELOOM_DF['ぜんこくずかんナンバー'].apply(lambda x: str(int(x)) if x.is_integer() else str(x))
+def load_config():
+    global DEVELOPER_USER_ID, GUILD_IDS, PDW_SERVER_ID, DEBUG_MODE, DEBUG_CHANNEL_ID, GUIDELINE_CHANNEL_ID, REACTIONROLE_CHANNEL_ID, STAGE_CHANNEL_ID, DAIRY_CHANNEL_ID, HELLO_CHANNEL_ID, CALLSTATUS_CHANNEL_ID, LOG_CHANNEL_ID, UNKNOWN_ROLE_ID, STAGEHOST_ROLE_ID, MENYMONEY_ROLE_ID, BALL_ICON, BANGBANG_ICON, EXCLAMATION_ICON, EX_SOURCE_LINK, REPORT_PATH, BSS_GRAPH_PATH, NOTFOUND_IMAGE_PATH, POKEDEX_PATH, POKECALENDAR_PATH, POKESENRYU_PATH, FEEDBACK_PATH, MEMORY_PATH, MEMBERLIST_PATH, CALLDATA_PATH, MEMBERDATA_PATH, CALLLOG_PATH, QUIZNAME_DICT, POKENAME_PREFIX_DICT, BASE_STATS_DICT, WEAK_DICT, TYPE_COLOR_DICT, PRIZE_DICT, GLOBAL_BRELOOM_DF
+    config_dict = []
+    try:
+        with open("config.json", "r", encoding="utf-8") as file:
+            config_dict = json.load(file)
+    except FileNotFoundError:
+        with open("document/default_config.json", "r") as default_config:
+            config_dict = json.load(default_config)
+
+    # 引数'debug'が指定されているとき,デバッグモードで起動
+    if sys.argv[1] == "debug":
+        DEBUG_MODE = True
+        guildId = config_dict["developer_guild_id"]
+    else:
+        guildId = "1067125843647791114"
+
+    guild_dict = config_dict["guild_dict"][guildId]
+    emoji_id_dict = config_dict["emoji_id_dict"]
+    link_dict = config_dict["link_dict"]
+    path_dict = config_dict["path_dict"]
+    system_dict_dict = config_dict["system_dict_dict"]
+
+    DEVELOPER_USER_ID = config_dict["developer_user_id"]
+    # 登録されたサーバーのギルドIDのリストを取得
+    GUILD_IDS = config_dict.get("guild_id", [])
+
+    # 各種サーバー固有の変数を設定
+    PDW_SERVER_ID = guildId
+    ##チャンネルID
+    DEBUG_CHANNEL_ID = guild_dict["debug_channel_id"]
+    GUIDELINE_CHANNEL_ID = guild_dict["guideline_channel_id"]
+    REACTIONROLE_CHANNEL_ID = guild_dict["reactionrole_channel_id"]
+    STAGE_CHANNEL_ID = guild_dict["stage_channel_id"]
+    DAIRY_CHANNEL_ID = guild_dict["dairy_channel_id"]
+    HELLO_CHANNEL_ID = guild_dict["hello_channel_id"]
+    CALLSTATUS_CHANNEL_ID = guild_dict["callstatus_channel_id"]
+    LOG_CHANNEL_ID = guild_dict["log_channel_id"]
+    ##ロールID
+    UNKNOWN_ROLE_ID = guild_dict["unknown_role_id"]
+    STAGEHOST_ROLE_ID = guild_dict["stagehost_role_id"]
+    MENYMONEY_ROLE_ID = guild_dict["menymoney_role_id"]
+    ## 絵文字コード
+    BALL_ICON = emoji_id_dict["ball_icon"]
+    BANGBANG_ICON = emoji_id_dict["bangbang_icon"]
+    EXCLAMATION_ICON = emoji_id_dict["exclamation_icon"]
+    ## URL
+    EX_SOURCE_LINK = link_dict["ex_source_link"]
+
+    ## 各種ファイルのパス
+    REPORT_PATH = path_dict["report_path"]
+    BSS_GRAPH_PATH = path_dict["bss_graph_path"]
+    NOTFOUND_IMAGE_PATH = path_dict["notfound_image_path"]
+    POKEDEX_PATH = path_dict["pokedex_path"]
+    POKECALENDAR_PATH = path_dict["pokecalendar_path"]
+    POKESENRYU_PATH = path_dict["pokesenryu_path"]
+    FEEDBACK_PATH = path_dict["feedback_path"]
+    MEMORY_PATH = path_dict["memory_path"]
+    CALLDATA_PATH = path_dict["calldata_path"]
+    MEMBERDATA_PATH = path_dict["memberdata_path"]
+    MEMBERLIST_PATH = path_dict["memberlist_path"]
+    CALLLOG_PATH = path_dict["calllog_path"]
+
+    ## 各種辞書データ
+    # クイズ名を識別子に変換する辞書(スラッシュコマンドも更新される)
+    QUIZNAME_DICT = system_dict_dict["quizname_dict"]
+    # fetch_pokemonで使用
+    POKENAME_PREFIX_DICT = system_dict_dict["pokename_prefix_dict"]
+    # make_filter_dictで使用
+    BASE_STATS_DICT = system_dict_dict["base_stats_dict"]
+    # show_calendarで使用
+    WEAK_DICT = system_dict_dict["weak_dict"]
+    TYPE_COLOR_DICT = system_dict_dict["type_color_dict"]
+    PRIZE_DICT = system_dict_dict["prize_dict"]
+
+    # グローバルずかんデータを用意
+    GLOBAL_BRELOOM_DF = pd.read_csv(POKEDEX_PATH)
+    GLOBAL_BRELOOM_DF["ぜんこくずかんナンバー"] = GLOBAL_BRELOOM_DF[
+        "ぜんこくずかんナンバー"
+    ].apply(lambda x: str(int(x)) if x.is_integer() else str(x))
+
+
+#起動時にconfig.jsonを読み込む
+load_config()
