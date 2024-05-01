@@ -64,6 +64,8 @@ async def post_logs():
                 channel = client.get_channel(LOG_CHANNEL_ID)
                 await channel.send(logStrs)
                 file.truncate(0)
+                sys.stdout.flush()
+                
     except FileNotFoundError:
         pass
 
