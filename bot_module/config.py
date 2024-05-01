@@ -8,7 +8,7 @@ import sys
 ####################################################################################################
 # 引数'debug'が指定されているとき,デバッグモードで起動
 DEBUG_MODE = False
-if sys.argv[1] == "debug":
+if len(sys.argv) > 1 and sys.argv[1] == "debug":
     DEBUG_MODE = True
 
 # main.pyのディレクトリに移動
