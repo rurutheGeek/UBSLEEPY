@@ -28,6 +28,7 @@ DEVELOPER_USER_ID = 563436616811675658
 ##ロールID
 UNKNOWN_ROLE_ID = 1083312357226336307
 STAGEHOST_ROLE_ID = 1079328119992893490
+MENYMONEY_ROLE_ID = 1234064125030699041
 ## 絵文字コード
 BALL_ICON = '<:bullet:1077833761313525820> '
 BANGBANG_ICON='<:unown_bangbang:1095570764415123508>' 
@@ -77,6 +78,7 @@ os.chdir(PROJECT_ROOT)
 #
 REPORT_PATH ="save/report.csv"
 BSS_GRAPH_PATH = 'save/graph.png'
+NOTFOUND_IMAGE_PATH = 'resource/image/decamark.png'
 POKEDEX_PATH = "resource/pokedata_breloom.csv"
 POKECALENDAR_PATH = "resource/pokecalendar_breloom.csv"
 POKESENRYU_PATH = "resource/pokesenryu_breloom.csv"
