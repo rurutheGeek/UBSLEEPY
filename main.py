@@ -47,7 +47,7 @@ tree = discord.app_commands.CommandTree(client)
 async def on_ready():  # bot起動時
     global BQ_FILTERED_DF
     if DEBUG_MODE:
-        output_log('引数に"debug"が指定されました')
+        output_log('".vscode/launch.json"のargsに"debug"が指定されています')
     if len(GUILD_IDS) == 0:
         output_log("登録済のサーバーが0個です")
     else:
