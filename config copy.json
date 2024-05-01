@@ -1,74 +1,72 @@
 {
-    "DEVELOP_ID_DICT":{
-        "DEVELOPER_USER_ID": 563436616811675658,
-        "DEVELOPER_GUILD_ID": "1140787268370583634",
-        "GUILD_IDS": [
-            1140787268370583634,
-            1067125843647791114
-        ]
-    },
-    "GUILD_DICT": {
+    "developer_user_id": 563436616811675658,
+    "developer_guild_id": "1140787268370583634",
+    "guild_id": [
+        1140787268370583634,
+        1067125843647791114
+    ],
+    "guild_dict": {
         "1067125843647791114": {
-            "GUILD_NAME": "ポーガクインドリームワールド",
-            "DEBUG_CHANNEL_ID": 1081568799624536085,
-            "GUIDELINE_CHANNEL_ID": 1067423922477355048,
-            "STAGE_CHANNEL_ID": 1088518773461491892,
-            "DAIRY_CHANNEL_ID": 1082026583109419018,
-            "HELLO_CHANNEL_ID": 1067125844465688637,
-            "REACTIONROLE_CHANNEL_ID": 1068903858790731807,
-            "CALLSTATUS_CHANNEL_ID": 1089708019677409330,
-            "LOG_CHANNEL_ID": 1140787559325249717,
-            "UNKNOWN_ROLE_ID": 1083312357226336307,
-            "STAGEHOST_ROLE_ID": 1079328119992893490,
-            "MENYMONEY_ROLE_ID": 1234064125030699041
+            "guild_name": "ポーガクインドリームワールド",
+            "debug_channel_id": 1081568799624536085,
+            "guideline_channel_id": 1067423922477355048,
+            "stage_channel_id": 1088518773461491892,
+            "dairy_channel_id": 1082026583109419018,
+            "hello_channel_id": 1067125844465688637,
+            "reactionrole_channel_id": 1068903858790731807,
+            "callstatus_channel_id": 1089708019677409330,
+            "log_channel_id": 1140787559325249717,
+            "unknown_role_id": 1083312357226336307,
+            "stagehost_role_id": 1079328119992893490,
+            "menymoney_role_id": 1234064125030699041
         },
         "1140787268370583634":{
-            "GUILD_NAME": "エーテルル財団",
-            "DEBUG_CHANNEL_ID": 1140787559325249717,
-            "GUIDELINE_CHANNEL_ID": 1140787559325249717,
-            "STAGE_CHANNEL_ID": 1140787559325249717,
-            "DAIRY_CHANNEL_ID": 1140787559325249717,
-            "HELLO_CHANNEL_ID": 1140787269280743666,
-            "REACTIONROLE_CHANNEL_ID": 1140787559325249717,
-            "CALLSTATUS_CHANNEL_ID": 1140787559325249717,
-            "LOG_CHANNEL_ID": 1140787559325249717,
-            "UNKNOWN_ROLE_ID": 1232940951249616967,
-            "STAGEHOST_ROLE_ID": 1232940951249616967,
-            "MENYMONEY_ROLE_ID": 1232940951249616967
+            "guild_name": "エーテルル財団",
+            "debug_channel_id": 1140787559325249717,
+            "guideline_channel_id": 1140787559325249717,
+            "stage_channel_id": 1140787559325249717,
+            "dairy_channel_id": 1140787559325249717,
+            "hello_channel_id": 1140787559325249717,
+            "reactionrole_channel_id": 1140787559325249717,
+            "callstatus_channel_id": 1140787559325249717,
+            "log_channel_id": 1140787559325249717,
+            "unknown_role_id": 1232940951249616967,
+            "stagehost_role_id": 1232940951249616967,
+            "menymoney_role_id": 1232940951249616967
         }
     },
-    "EMOJI_ID_DICT": {
-        "BALL_ICON": "<:bullet:1077833761313525820> ",
-        "BANGBANG_ICON": "<:unown_bangbang:1095570764415123508>",
-        "EXCLAMATION_ICON": "<:unown_exclamation:1095570767984480489>"
+    "emoji_id_dict": {
+        "ball_icon": "<:bullet:1077833761313525820> ",
+        "bangbang_icon": "<:unown_bangbang:1095570764415123508>",
+        "exclamation_icon": "<:unown_exclamation:1095570767984480489>"
     },
-    "PATH_DICT": {
-        "REPORT_PATH": "save/report.csv",
-        "BSS_GRAPH_PATH": "save/graph.png",
-        "NOTFOUND_IMAGE_PATH": "resource/image/decamark.png",
-        "POKEDEX_PATH": "resource/pokedata_breloom.csv",
-        "POKECALENDAR_PATH": "resource/pokecalendar_breloom.csv",
-        "POKESENRYU_PATH": "resource/pokesenryu_breloom.csv",
-        "FEEDBACK_PATH": "save/feedback.csv",
-        "MEMORY_PATH": "save/restmemorychannel.csv",
-        "CALLDATA_PATH": "save/busychannel.csv",
-        "MEMBERDATA_PATH": "resource/member_breloom.csv",
-        "MEMBERLIST_PATH": "save/studentid.csv",
-        "CALLLOG_PATH": "log/calllog.csv",
-        "SYSTEMLOG_PATH": "log/system_log.txt"
+    "path_dict": {
+        "report_path": "save/report.csv",
+        "bss_graph_path": "save/graph.png",
+        "notfound_image_path": "resource/image/decamark.png",
+        "pokedex_path": "resource/pokedata_breloom.csv",
+        "pokecalendar_path": "resource/pokecalendar_breloom.csv",
+        "pokesenryu_path": "resource/pokesenryu_breloom.csv",
+        "feedback_path": "save/feedback.csv",
+        "memory_path": "save/restmemorychannel.csv",
+        "calldata_path": "save/busychannel.csv",
+        "memberdata_path": "resource/member_breloom.csv",
+        "memberlist_path": "save/studentid.csv",
+        "calllog_path": "log/calllog.csv",
+        "systemlog_path": "log/system_log.txt"
     },
-    "LINK_DICT": {
-        "EX_SOURCE_LINK": "https://pokecries.nobody.jp/content/resources/"
+    "link_dict": {
+        "ex_source_link": "https://pokecries.nobody.jp/content/resources/"
     },
-    "SYSTEM_DICT_DICT":{
-        "QUIZNAME_DICT": {
+    "system_dict_dict":{
+        "quizname_dict": {
             "種族値クイズ": "bq",
             "物理特殊クイズ": "acq",
             "英和翻訳クイズ": "etojq",
             "和英翻訳クイズ": "jtoeq",
             "中日翻訳クイズ": "ctojq"
         },
-        "POKENAME_PREFIX_DICT": {
+        "pokename_prefix_dict": {
             "A": "アローラ",
             "G": "ガラル",
             "H": "ヒスイ",
@@ -79,7 +77,7 @@
             "古来": "コライ",
             "未来": "ミライ"
         },
-        "BASE_STATS_DICT": {
+        "base_stats_dict": {
             "H": "HP",
             "HP": "HP",
             "A": "こうげき",
@@ -101,7 +99,7 @@
             "ごうけい": "合計",
             "合計": "合計"
         },
-        "WEAK_DICT": {
+        "weak_dict": {
             "0": "月",
             "1": "火",
             "2": "水",
@@ -110,7 +108,7 @@
             "5": "土",
             "6": "日"
         },
-        "TYPE_COLOR_DICT": {
+        "type_color_dict": {
             "ノーマル": 14474460,
             "ほのお": 16711680,
             "みず": 255,
@@ -130,7 +128,7 @@
             "でんき": 16773132,
             "フェアリー": 16773333
         },
-        "PRIZE_DICT": {
+        "prize_dict": {
             "0": [
                 "ほしのすな",
                 1500,
