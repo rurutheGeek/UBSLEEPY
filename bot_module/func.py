@@ -275,6 +275,28 @@ def make_filter_dict(values: list[str]) -> dict[str,str]:
   output_log("以下のフィルタ辞書を生成しました\n "+str(new_dict))
   return new_dict
 
+def attachment_file(file_path: str) -> discord.File:
+  '''discordのファイルオブジェクトを生成する
+  Parameters:
+  ----------
+  file_path : str
+  元ファイルのパス
+
+  Returns:
+  ----------
+  file : discord.File
+  生成したファイルオブジェクト
+  attachment_path : str
+  添付ファイルのパス
+  '''
+  filename = os.path.basename(file_path)
+  if not os.path.exists(file_path):
+      file_path = NOTFOUND_IMAGE_PATH
+      filename = os.path.basename(file_path)
+  file = discord.File(file_path, filename=filename)
+  attachment_path=f"attachment://{filename}"
+  output_log(f"添付ファイルのパスを生成しました: {attachment_path}")
+  return file,attachment_path
 
 def show_calendar(day: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))) -> discord.Embed:
   calendarTitle = BALL_ICON
