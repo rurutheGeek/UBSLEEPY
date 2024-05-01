@@ -17,8 +17,8 @@ import discord
 from discord.ext import tasks
 import pandas as pd
 import numpy as np
-import jaconv
-from dotenv import load_dotenv
+import jaconv  # type: ignore
+from dotenv import load_dotenv  # type: ignore
 
 # 分割されたモジュール
 import bot_module.func as ub
@@ -26,15 +26,15 @@ import bot_module.embed as ub_embed
 from bot_module.config import *
 
 # """デバッグ用設定
-LOG_CHANNEL_ID = 1140787559325249717 #ログを出力するチャンネルのIDに変更
-PDW_SERVER_ID = DEV_SERVER_ID #開発しているサーバーのIDに変更
+LOG_CHANNEL_ID = 1140787559325249717  # ログを出力するチャンネルのIDに変更
+# PDW_SERVER_ID = DEV_SERVER_ID  # 開発しているサーバーのIDに変更
 DEBUG_CHANNEL_ID = LOG_CHANNEL_ID
 GUIDELINE_CHANNEL_ID = LOG_CHANNEL_ID
 STAGE_CHANNEL_ID = LOG_CHANNEL_ID
 DAIRY_CHANNEL_ID = LOG_CHANNEL_ID
 CALLSTATUS_CHANNEL_ID = LOG_CHANNEL_ID
-#UNKNOWN_ROLE_ID = 1232940951249616967
-#HELLO_CHANNEL_ID = LOG_CHANNEL_ID
+# UNKNOWN_ROLE_ID = 1232940951249616967
+# HELLO_CHANNEL_ID = LOG_CHANNEL_ID
 # """
 
 
@@ -73,15 +73,15 @@ async def on_ready():  # bot起動時
     except FileExistsError:
         pass
 
-    if(len(GUILD_IDS)==0):
+    if len(GUILD_IDS) == 0:
         output_log("登録済のサーバーが0個です")
     else:
-        syncGuildName=""
-        i=0
+        syncGuildName = ""
+        i = 0
         for guild_id in GUILD_IDS:
-            syncGuildName+=f"#{i} \n{client.get_guild(guild_id).name}"
+            syncGuildName += f"\n#{i} {client.get_guild(guild_id).name}"
             await tree.sync(guild=discord.Object(id=guild_id))
-            i+=1
+            i += 1
         output_log(f"登録済のサーバーを{len(GUILD_IDS)}個読み込みました{syncGuildName}")
 
     BQ_FILTERED_DF = ub.filter_dataframe(BQ_FILTER_DICT).fillna("なし")
@@ -122,7 +122,9 @@ async def post_logs():
 
 
 # スラッシュコマンド
-@tree.command(name="import", description="このサーバーにギルドコマンドをインポートします")
+@tree.command(
+    name="import", description="このサーバーにギルドコマンドをインポートします"
+)
 async def slash_test(interaction: discord.Interaction):
     if interaction.user.guild_permissions.administrator:
         if interaction.guild.id in GUILD_IDS:
@@ -144,7 +146,9 @@ async def slash_test(interaction: discord.Interaction):
 @tree.command(name="notice", description="botのステータスメッセージを変更します")
 @discord.app_commands.describe(message="ステータスメッセージ")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
-async def slash_notice(interaction: discord.Interaction, message: str = "キノコのほうし"):
+async def slash_notice(
+    interaction: discord.Interaction, message: str = "キノコのほうし"
+):
     if interaction.user.guild_permissions.administrator:
         if message is not None:
             await client.change_presence(
@@ -170,7 +174,9 @@ async def slash_notice(interaction: discord.Interaction, message: str = "キノ�
 
 @tree.command(name="q", description="現在の出題設定に基づいてクイズを出題します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
-@discord.app_commands.describe(quizname="クイズの種別 未記入で種族値クイズが指定されます")
+@discord.app_commands.describe(
+    quizname="クイズの種別 未記入で種族値クイズが指定されます"
+)
 @discord.app_commands.choices(
     quizname=[
         discord.app_commands.Choice(name=val, value=val)
@@ -189,7 +195,10 @@ async def slash_q(interaction: discord.Interaction, quizname: str = "種族値�
 
 @tree.command(name="quizrate", description="クイズの戦績を表示します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
-@discord.app_commands.describe(user="表示したいメンバー名", quizname="クイズの種別 未記入で種族値クイズが指定されます")
+@discord.app_commands.describe(
+    user="表示したいメンバー名",
+    quizname="クイズの種別 未記入で種族値クイズが指定されます",
+)
 @discord.app_commands.choices(
     quizname=[
         discord.app_commands.Choice(name=val, value=val)
@@ -250,13 +259,14 @@ async def on_message(message):
     if message.author.bot:  # メッセージ送信者がBotだった場合は無視する
         return
 
-
     # senpaiがオンラインである時
     senpai_id = 1076387439410675773
     senpai = message.guild.get_member(senpai_id)
     if senpai and senpai.status == discord.Status.online:
         await client.change_presence(
-            activity=discord.Activity(name="研修チュウ", type=discord.ActivityType.playing)
+            activity=discord.Activity(
+                name="研修チュウ", type=discord.ActivityType.playing
+            )
         )
         return
     else:
@@ -290,7 +300,15 @@ async def on_message(message):
                 bqFilterWords.remove("リセット")
 
             if "種族値" in bqFilterWords:
-                for key in ["HP", "こうげき", "ぼうぎょ", "とくこう", "とくぼう", "すばやさ", "合計"]:
+                for key in [
+                    "HP",
+                    "こうげき",
+                    "ぼうぎょ",
+                    "とくこう",
+                    "とくぼう",
+                    "すばやさ",
+                    "合計",
+                ]:
                     BQ_FILTER_DICT.pop(key, None)
                 bqFilterWords.remove("種族値")
 
@@ -337,141 +355,278 @@ async def on_message(message):
         if message.reference.resolved.embeds:
             embedFooterText = message.reference.resolved.embeds[0].footer.text
             # リプライ先にembedが含まれるかつ未回答のクイズの投稿か
-            if "No.26 ポケモンクイズ" in embedFooterText and not "(done)" in embedFooterText:
+            if (
+                "No.26 ポケモンクイズ" in embedFooterText
+                and not "(done)" in embedFooterText
+            ):
                 await quiz(embedFooterText.split()[3]).try_response(message)
 
             else:
                 output_log("botへのリプライは無視されました")
 
-#新規メンバーが参加したときの処理
+
+# 新規メンバーが参加したときの処理
 @client.event
 async def on_member_join(member):
     if not member.bot:
-        await member.add_roles(member.guild.get_role(UNKNOWN_ROLE_ID))#ロールがある場合に付与に変更
-        output_log(f'ロールを付与しました: {member.name}にID{UNKNOWN_ROLE_ID}')
-        if (helloCh := client.get_channel(HELLO_CHANNEL_ID)):
-            helloEmbed=discord.Embed(
+        await member.add_roles(
+            member.guild.get_role(UNKNOWN_ROLE_ID)
+        )  # ロールがある場合に付与に変更
+        output_log(f"ロールを付与しました: {member.name}にID{UNKNOWN_ROLE_ID}")
+        if helloCh := client.get_channel(HELLO_CHANNEL_ID):
+            helloEmbed = discord.Embed(
                 title="メンバー認証ボタンを押して 学籍番号を送信してね",
-                color=0x5eff24,
-                description="送信するとサーバーが使用可能になります\n工学院大学の学生でない人は個別にご相談ください"
+                color=0x5EFF24,
+                description="送信するとサーバーが使用可能になります\n工学院大学の学生でない人は個別にご相談ください",
             )
-            helloEmbed.set_author(name=f'{member.guild.name}の せかいへ ようこそ!')
-            helloEmbed.add_field(name="サーバーの ガイドラインは こちら", value=f'{BALL_ICON}<#1067423922477355048>', inline=False)
-            helloEmbed.add_field(name="みんなにみせるロールを 変更する", value=f'{BALL_ICON}<#1068903858790731807>', inline=False)
-            helloEmbed.set_thumbnail(url=f'{EX_SOURCE_LINK}sprites/Gen1/{random.randint(1, 151)}.png')
-        
-            authButton = discord.ui.Button(label="メンバー認証",style=discord.ButtonStyle.primary,custom_id="authButton")
+            helloEmbed.set_author(name=f"{member.guild.name}の せかいへ ようこそ!")
+            helloEmbed.add_field(
+                name="サーバーの ガイドラインは こちら",
+                value=f"{BALL_ICON}<#1067423922477355048>",
+                inline=False,
+            )
+            helloEmbed.add_field(
+                name="みんなにみせるロールを 変更する",
+                value=f"{BALL_ICON}<#1068903858790731807>",
+                inline=False,
+            )
+            helloEmbed.set_thumbnail(
+                url=f"{EX_SOURCE_LINK}sprites/Gen1/{random.randint(1, 151)}.png"
+            )
+
+            authButton = discord.ui.Button(
+                label="メンバー認証",
+                style=discord.ButtonStyle.primary,
+                custom_id="authButton",
+            )
             helloView = discord.ui.View()
             helloView.add_item(authButton)
-            
-            await helloCh.send(f"はじめまして! {member.mention}さん",embed=helloEmbed,view=helloView)
-            output_log(f'サーバーにメンバーが参加しました: {member.name}')
+
+            await helloCh.send(
+                f"はじめまして! {member.mention}さん", embed=helloEmbed, view=helloView
+            )
+            output_log(f"サーバーにメンバーが参加しました: {member.name}")
         else:
-            output_log(f'チャンネルが見つかりません: {HELLO_CHANNEL_ID}')
+            output_log(f"チャンネルが見つかりません: {HELLO_CHANNEL_ID}")
+
 
 @client.event
-async def on_interaction(interaction:discord.Interaction):
+async def on_interaction(interaction: discord.Interaction):
     if "custom_id" in interaction.data and interaction.data["custom_id"] == "authModal":
         output_log("学籍番号を処理します")
         listPath = "resource/member_breloom.csv"
-        studentId = interaction.data['components'][0]['components'][0]['value']
-        
-        if (studentId := studentId.upper()).startswith(('S', 'A', 'C', 'J', 'D','B','E','G')) and re.match(r'^[A-Z0-9]+$', studentId) and len(studentId) == 7:  
+        studentId = interaction.data["components"][0]["components"][0]["value"]
+
+        if (
+            (studentId := studentId.upper()).startswith(
+                ("S", "A", "C", "J", "D", "B", "E", "G")
+            )
+            and re.match(r"^[A-Z0-9]+$", studentId)
+            and len(studentId) == 7
+        ):
             member = interaction.user
             role = interaction.guild.get_role(UNKNOWN_ROLE_ID)
-            favePokeName = interaction.data['components'][1]['components'][0]['value']
+            favePokeName = interaction.data["components"][1]["components"][0]["value"]
             response = "登録を修正したい場合はもう一度ボタンを押してください"
 
-            if role in member.roles: #ロールを持っていれば削除
+            if role in member.roles:  # ロールを持っていれば削除
                 await member.remove_roles(role)
                 response += "\nサーバーが利用可能になりました"
-                output_log(f'学籍番号が登録されました\n {member.name}: {studentId}') 
+                output_log(f"学籍番号が登録されました\n {member.name}: {studentId}")
             else:
-                output_log(f'登録の修正を受け付けました\n {member.name}: {studentId}') 
+                output_log(f"登録の修正を受け付けました\n {member.name}: {studentId}")
             response += "\n`※このメッセージはあなたにしか表示されていません`"
-            
-            thanksEmbed=discord.Embed(
-                title="登録ありがとうございました",
-                color=0x2eafff,
-                description=response
+
+            thanksEmbed = discord.Embed(
+                title="登録ありがとうございました", color=0x2EAFFF, description=response
             )
             thanksEmbed.add_field(name="登録した学籍番号", value=studentId)
-            thanksEmbed.add_field(name="好きなポケモン", value=favePokeName if not favePokeName=="" else "登録なし")
+            thanksEmbed.add_field(
+                name="好きなポケモン",
+                value=favePokeName if not favePokeName == "" else "登録なし",
+            )
 
             if not favePokeName == "":
-                if (favePokedata := ub.fetch_pokemon(favePokeName))is not None:
-                    favePokeName = favePokedata.iloc[0]['おなまえ']
+                if (favePokedata := ub.fetch_pokemon(favePokeName)) is not None:
+                    favePokeName = favePokedata.iloc[0]["おなまえ"]
 
             times = datetime.now(ZoneInfo("Asia/Tokyo")).strftime("%Y/%m/%d %H:%M:%S")
-            authData = {'登録日時':[times], 'ユーザーID': [str(member.id)], 'ユーザー名': [member.name],'学籍番号': [studentId],'好きなポケモン':[favePokeName]}
+            authData = {
+                "登録日時": [times],
+                "ユーザーID": [str(member.id)],
+                "ユーザー名": [member.name],
+                "学籍番号": [studentId],
+                "好きなポケモン": [favePokeName],
+            }
             df = pd.DataFrame(authData)
-            df.to_csv('save/studentid.csv', mode='a', index=False, header=not os.path.exists('save/studentid.csv'))
-                
+            df.to_csv(
+                "save/studentid.csv",
+                mode="a",
+                index=False,
+                header=not os.path.exists("save/studentid.csv"),
+            )
+
             content = "照合に失敗しました ?\n※メンバーリストにまだ学籍番号のデータがない可能性があります"
             if os.path.exists(listPath):
                 member_df = pd.read_csv(listPath).set_index("学籍番号")
                 if studentId in member_df.index:
-                    memberData = pd.DataFrame({
-                        'ユーザーID': [member.id],
-                        'ユーザー名':[member.name],
-                        '好きなポケモン': [favePokeName]
-                    }, index=[studentId]).iloc[0]
+                    memberData = pd.DataFrame(
+                        {
+                            "ユーザーID": [member.id],
+                            "ユーザー名": [member.name],
+                            "好きなポケモン": [favePokeName],
+                        },
+                        index=[studentId],
+                    ).iloc[0]
                     member_df.loc[studentId] = memberData
-                    member_df['ユーザーID'] = member_df['ユーザーID'].dropna().replace([np.inf, -np.inf], np.nan).dropna().astype(int)
-                    
+                    member_df["ユーザーID"] = (
+                        member_df["ユーザーID"]
+                        .dropna()
+                        .replace([np.inf, -np.inf], np.nan)
+                        .dropna()
+                        .astype(int)
+                    )
+
                     member_df.to_csv(listPath, index=True, float_format="%.0f")
                     content = "照合に成功しました"
-                    output_log(f'サークルメンバー照合ができました\n {studentId}: {member.name}')
+                    output_log(
+                        f"サークルメンバー照合ができました\n {studentId}: {member.name}"
+                    )
                 else:
-                    output_log(f'サークルメンバー照合ができませんでした\n {studentId}: {member.name}')
+                    output_log(
+                        f"サークルメンバー照合ができませんでした\n {studentId}: {member.name}"
+                    )
             else:
-                output_log(f'ファイルが存在しません: {listPath}')
-            
-            await interaction.response.send_message(content, embed=thanksEmbed, ephemeral=True)
+                output_log(f"ファイルが存在しません: {listPath}")
 
-        else: #学籍番号が送信されなかった場合の処理
-            output_log(f'学籍番号として認識されませんでした: {studentId}')
-            errorEmbed=discord.Embed(
+            await interaction.response.send_message(
+                content, embed=thanksEmbed, ephemeral=True
+            )
+
+        else:  # 学籍番号が送信されなかった場合の処理
+            output_log(f"学籍番号として認識されませんでした: {studentId}")
+            errorEmbed = discord.Embed(
                 title="401 Unauthorized",
-                color=0xff0000,
-                description=f'あなたの入力した学籍番号: **{studentId}**\n申し訳ございませんが、もういちどお試しください。')
-            errorEmbed.set_author(name="Porygon-Z.com",url="https://wiki.ポケモン.com/wiki/ポリゴンZ")
-            errorEmbed.set_thumbnail(url=f'{EX_SOURCE_LINK}art/474.png')
-            errorEmbed.add_field(name="入力形式は合っていますか?", value="半角英数字7ケタで入力してください", inline=False)
-            errorEmbed.add_field(name="工学院生ではありませんか?", value="個別にご相談ください", inline=False)
-            errorEmbed.add_field(name="解決しない場合", value=f'管理者にお問い合わせください: <@!{DEVELOPER_USER_ID}>', inline=False)
+                color=0xFF0000,
+                description=f"あなたの入力した学籍番号: **{studentId}**\n申し訳ございませんが、もういちどお試しください。",
+            )
+            errorEmbed.set_author(
+                name="Porygon-Z.com", url="https://wiki.ポケモン.com/wiki/ポリゴンZ"
+            )
+            errorEmbed.set_thumbnail(url=f"{EX_SOURCE_LINK}art/474.png")
+            errorEmbed.add_field(
+                name="入力形式は合っていますか?",
+                value="半角英数字7ケタで入力してください",
+                inline=False,
+            )
+            errorEmbed.add_field(
+                name="工学院生ではありませんか?",
+                value="個別にご相談ください",
+                inline=False,
+            )
+            errorEmbed.add_field(
+                name="解決しない場合",
+                value=f"管理者にお問い合わせください: <@!{DEVELOPER_USER_ID}>",
+                inline=False,
+            )
             await interaction.response.send_message(embed=errorEmbed, ephemeral=True)
-        
-    elif "component_type" in interaction.data and interaction.data["component_type"] == 2:
-        output_log(f'buttonが押されました\n {interaction.user.name}: {interaction.data["custom_id"]}')
+
+    elif (
+        "component_type" in interaction.data and interaction.data["component_type"] == 2
+    ):
+        output_log(
+            f'buttonが押されました\n {interaction.user.name}: {interaction.data["custom_id"]}'
+        )
         await on_button_click(interaction)
 
-async def on_button_click(interaction:discord.Interaction):
-        custom_id = interaction.data["custom_id"] #custom_id(インタラクションの識別子)を取り出す
-    
-        if custom_id == "authButton": #メンバー認証ボタン モーダルを送信する
-            output_log("学籍番号取得を実行します")
-            authModal = discord.ui.Modal(
-                title="メンバー認証",
-                timeout=None,
-                custom_id="authModal"
-            )
-            authInput = discord.ui.TextInput(
-                label="学籍番号",
-                placeholder="J111111",
-                min_length=7,
-                max_length=7,
-                custom_id="studentIdInput"
-            )
-            authModal.add_item(authInput)
-            favePokeInput = discord.ui.TextInput(
-                label="好きなポケモン(任意)",
-                placeholder="ヤブクロン",
-                required=False,
-                custom_id="favePokeInput"
-            )
-            authModal.add_item(favePokeInput)
-            await interaction.response.send_modal(authModal)
+
+async def on_button_click(interaction: discord.Interaction):
+    custom_id = interaction.data[
+        "custom_id"
+    ]  # custom_id(インタラクションの識別子)を取り出す
+
+    if custom_id == "authButton":  # メンバー認証ボタン モーダルを送信する
+        output_log("学籍番号取得を実行します")
+        authModal = discord.ui.Modal(
+            title="メンバー認証", timeout=None, custom_id="authModal"
+        )
+        authInput = discord.ui.TextInput(
+            label="学籍番号",
+            placeholder="J111111",
+            min_length=7,
+            max_length=7,
+            custom_id="studentIdInput",
+        )
+        authModal.add_item(authInput)
+        favePokeInput = discord.ui.TextInput(
+            label="好きなポケモン(任意)",
+            placeholder="ヤブクロン",
+            required=False,
+            custom_id="favePokeInput",
+        )
+        authModal.add_item(favePokeInput)
+        await interaction.response.send_modal(authModal)
+
+
+comeout = """
+elif custom_id.startswith("lotoIdButton"): #IDくじボタン
+      output_log("IDくじを実行します")
+      #カスタムIDは,"lotoIdButton:00000:0000/00/00"という形式
+      lotoId = custom_id.split(":")[1]
+      birth = custom_id.split(":")[2]
+      now = datetime.now(ZoneInfo("Asia/Tokyo"))
+      today = now.date()
+      if(now.hour < 5):
+        today = today - timedelta(days=1)
+      
+      if ub.report(interaction.user.id,"クジびきけん",0) == 0:
+        await interaction.response.send_message("くじが ひけるのは 1日1回 まで なんだロ……",ephemeral=True)
+      elif not birth   == str(today):
+        await interaction.response.send_message(f'それは 今日のIDくじ じゃないロ{EXCLAMATION_ICON}',ephemeral=True)
+      else:
+        shun='''prize_dict = {
+          0: ["ほしのすな", 1500, "", "残念賞"],
+          1: ["きんのたま", 5000, f'やったロ{EXCLAMATION_ICON} 1ケタ おんなじロ{EXCLAMATION_ICON}', "4等"],
+          2: ["すいせいのかけら", 12500, f'2ケタが おんなじだったロミ{EXCLAMATION_ICON}', "3等"],
+          3: ["ガブリアスドール", 65000, f'ロミ{EXCLAMATION_ICON} 3ケタが おんなじロ{EXCLAMATION_ICON}', "2等"],
+          4: ["こだいのせきぞう", 200000, f'すごいロ{EXCLAMATION_ICON} 4ケタも おんなじロミ{EXCLAMATION_ICON}',"1等"],
+          5: ["たかそうなカード", 650000, f'ロミ~~{EXCLAMATION_ICON}{EXCLAMATION_ICON}{EXCLAMATION_ICON} 下5ケタ すべてが おんなじロ{EXCLAMATION_ICON}', "特等"],
+          6: ["きんのパッチールぞう", 1000000, "", ""]
+        }'''
+        userId = str(interaction.user.id)[-6:].zfill(5) #ID下6ケタを取得
+        
+        count = 0
+        for i in range(1, 6):
+          if userId[-i] == lotoId[-i]:
+            count += 1
+          else:
+            break
+        prize = PRIZE_DICT[count][0]
+        value = PRIZE_DICT[count][1]
+        text = PRIZE_DICT[count][2]
+        place = PRIZE_DICT[count][3]
+        
+        lotoEmbed = discord.Embed(
+          title=text,
+          color=0xff99c2,
+          description=f'{place}の 商品 **{prize}**をプレゼントだロ{BANGBANG_ICON}\nそれじゃあ またの 挑戦を お待ちしてるロ~~{EXCLAMATION_ICON}'
+        )
+        lotoEmbed.set_thumbnail(url=f'{EX_SOURCE_LINK}icon/{prize}.png')
+        lotoEmbed.add_field(
+          name=f'{interaction.user.name}は {prize}を 手に入れた!',
+          value=f'売却価格: {value}えん\nおこづかい: {ub.report(interaction.user.id,"おこづかい",value)}えん',
+          inline=False
+        )
+        lotoEmbed.set_author(name=f'あなたのID: {userId}')
+        lotoEmbed.set_footer(text="No.15 IDくじ")
+        
+        ub.report(interaction.user.id,"クジびきけん",-1) #クジの回数を減らす
+        await interaction.response.send_message(embed=lotoEmbed,ephemeral=True)
+        
+    elif custom_id.startswith("acq"):
+      await quiz("acq").try_response(interaction)
+      """
+
 
 class quiz:
     def __init__(self, quizName):
@@ -504,8 +659,12 @@ class quiz:
                 quizFile = discord.File(
                     ub.generate_graph(baseStats), filename="image.png"
                 )
-                quizEmbed.set_image(url="attachment://image.png")  # 種族値クイズ図形の添付
-                quizEmbed.set_thumbnail(url=self.__imageLink())  # 正解までDecamark(?)を表示
+                quizEmbed.set_image(
+                    url="attachment://image.png"
+                )  # 種族値クイズ図形の添付
+                quizEmbed.set_thumbnail(
+                    url=self.__imageLink()
+                )  # 正解までDecamark(?)を表示
                 quizContent = ub.bss_to_text(qDatas)
 
             else:
@@ -514,7 +673,9 @@ class quiz:
         elif self.quizName == "acq":
             qDatas = self.__shotgun({"進化段階": ["最終進化", "進化しない"]})
             quizEmbed.title = "ACクイズ"
-            quizEmbed.description = f"{qDatas['おなまえ']} はこうげきととくこうどちらが高い?"
+            quizEmbed.description = (
+                f"{qDatas['おなまえ']} はこうげきととくこうどちらが高い?"
+            )
             quizEmbed.set_thumbnail(url=self.__imageLink(qDatas["おなまえ"]))
 
             quizView = discord.ui.View()
@@ -534,7 +695,9 @@ class quiz:
             )
             quizView.add_item(
                 discord.ui.Button(
-                    label="同値", style=discord.ButtonStyle.secondary, custom_id="acq_同値"
+                    label="同値",
+                    style=discord.ButtonStyle.secondary,
+                    custom_id="acq_同値",
                 )
             )
 
@@ -678,10 +841,14 @@ class quiz:
             judge = "誤答"
             if isinstance(self.rm, discord.Message):
                 reaction = "❌"
-            if isinstance(self.rm, discord.Interaction):  # ボタンで回答しているときはギブアップになる
+            if isinstance(
+                self.rm, discord.Interaction
+            ):  # ボタンで回答しているときはギブアップになる
                 await self.__disclose(False)
 
-        if self.quizName in ["bq", "etojq", "ctojq"] and repPokeData is None:  # 例外処理
+        if (
+            self.quizName in ["bq", "etojq", "ctojq"] and repPokeData is None
+        ):  # 例外処理
             judge = None
             if isinstance(self.rm, discord.Message):
                 reaction = "❓"
@@ -699,13 +866,17 @@ class quiz:
             > 0
         ):
             if isinstance(self.rm, discord.Message):
-                await self.rm.reply(f"{fixAns} は {poke.iloc[0]['おなまえ']} の英名です")
+                await self.rm.reply(
+                    f"{fixAns} は {poke.iloc[0]['おなまえ']} の英名です"
+                )
 
         if judge != "正答" and isinstance(self.rm, discord.Message):
             await self.rm.add_reaction(reaction)
 
         if judge is not None:
-            ub.report(self.opener.id, f"{self.quizName}{judge}", 1)  # 回答記録のレポート
+            ub.report(
+                self.opener.id, f"{self.quizName}{judge}", 1
+            )  # 回答記録のレポート
 
         self.__log(judge, self.ansList[0])
 
@@ -713,7 +884,9 @@ class quiz:
         output_log(f"{self.quizName}: ヒント表示を実行")
 
         if self.quizName in ["bq", "etojq", "ctojq"]:
-            if self.ansText == "ヒント":  # まだ出ていないヒントからランダムにヒントを出す
+            if (
+                self.ansText == "ヒント"
+            ):  # まだ出ていないヒントからランダムにヒントを出す
                 hintIndexs = [
                     "タイプ1",
                     "タイプ2",
@@ -741,7 +914,9 @@ class quiz:
             elif self.ansText in ["タイプ"]:
                 if not any(field.name == "タイプ1" for field in self.quizEmbed.fields):
                     hintIndex = "タイプ1"
-                elif not any(field.name == "タイプ2" for field in self.quizEmbed.fields):
+                elif not any(
+                    field.name == "タイプ2" for field in self.quizEmbed.fields
+                ):
                     hintIndex = "タイプ2"
                 else:
                     await self.rm.reply(
@@ -754,7 +929,9 @@ class quiz:
                     hintIndex = "特性1"
                 elif not any(field.name == "特性2" for field in self.quizEmbed.fields):
                     hintIndex = "特性2"
-                elif not any(field.name == "隠れ特性" for field in self.quizEmbed.fields):
+                elif not any(
+                    field.name == "隠れ特性" for field in self.quizEmbed.fields
+                ):
                     hintIndex = "隠れ特性"
                 else:
                     await self.rm.reply(
@@ -818,7 +995,9 @@ class quiz:
 
         else:  # 正解者が存在せず,ギブアップされた場合
             authorText = f"{self.opener.name} さんがギブアップ"
-            link = self.__imageLink(self.ansList[0])  # self.ansZero['おなまえ']でもいいかも
+            link = self.__imageLink(
+                self.ansList[0]
+            )  # self.ansZero['おなまえ']でもいいかも
 
         self.quizEmbed.set_author(name=authorText)  # 回答者の情報を表示
 
@@ -827,9 +1006,13 @@ class quiz:
         elif self.quizName == "acq":
             self.quizEmbed.description = f"{ub.bss_to_text(self.ansZero)}\n"
             if self.ansList[0] == "同値":
-                self.quizEmbed.description += f"{self.examText}はこうげきととくこうが同じ"
+                self.quizEmbed.description += (
+                    f"{self.examText}はこうげきととくこうが同じ"
+                )
             else:
-                self.quizEmbed.description += f"{self.examText}は{self.ansList[0]}の方が高い"
+                self.quizEmbed.description += (
+                    f"{self.examText}は{self.ansList[0]}の方が高い"
+                )
 
         elif self.quizName in ["etojq", "jtoeq", "ctojq"]:
             self.quizEmbed.description = f"{self.examText} -> [{self.ansList[0]}]"
@@ -857,7 +1040,7 @@ class quiz:
                 child.disabled = True
             try:
                 await self.rm.response.edit_message(
-                embed=self.quizEmbed, attachments=[], view=fixView
+                    embed=self.quizEmbed, attachments=[], view=fixView
                 )
             except discord.errors.Forbidden:
                 pass
@@ -869,7 +1052,9 @@ class quiz:
         if BAKUSOKU_MODE:
             output_log(f"{self.quizName}: 連続出題を実行")
             loadingEmbed = discord.Embed(
-                title="**BAKUSOKU MODE ON**", color=0x0000FF, description="次のクイズを生成チュウ"
+                title="**BAKUSOKU MODE ON**",
+                color=0x0000FF,
+                description="次のクイズを生成チュウ",
             )
             loadMessage = await self.qm.channel.send(embed=loadingEmbed)
             await quiz(self.quizName).post(self.qm.channel)
@@ -945,9 +1130,7 @@ class quiz:
             if self.quizName in ["bq", "acq", "etojq", "jtoeq", "ctojq"]:
                 displayImage = ub.fetch_pokemon(searchWord)
                 if displayImage is not None:  # 回答ポケモンが発見できた場合
-                    link = (
-                        f"{EX_SOURCE_LINK}art/{displayImage.iloc[0]['ぜんこくずかんナンバー']}.png"
-                    )
+                    link = f"{EX_SOURCE_LINK}art/{displayImage.iloc[0]['ぜんこくずかんナンバー']}.png"
             else:
                 output_log(f"不明なクイズ識別子(imageLink): {self.quizName}")
         return link
@@ -974,7 +1157,101 @@ class quiz:
         log_df.to_csv(logPath, mode="w", header=True, index=False)
 
 
-# keep_alive()
+@tasks.loop(seconds=60)
+async def daily_bonus(now: datetime = None):
+    if now is None:
+        now = datetime.now(ZoneInfo("Asia/Tokyo"))
+    if now.hour == 5 and now.minute == 0:
+        output_log("ジョブを実行します")
+        todayId = str(random.randint(0, 99999)).zfill(5)
+
+        dairyIdEmbed = discord.Embed(
+            title="IDくじセンター 抽選コーナー",
+            color=0xFF297E,
+            description=f"くじのナンバーと ユーザーIDが みごと あってると ステキな 景品を もらえちゃうんだロ{BANGBANG_ICON}",
+        )
+        dairyIdEmbed.add_field(
+            name=f"{BALL_ICON}今日のナンバー", value=f"**{todayId}**", inline=False
+        )
+        dairyIdEmbed.set_footer(text="No.15 IDくじ")
+
+        lotoButton = discord.ui.Button(
+            label="くじをひく",
+            style=discord.ButtonStyle.primary,
+            custom_id=f'lotoIdButton:{todayId}:{datetime.now(ZoneInfo("Asia/Tokyo")).date()}',
+        )
+        dairyView = discord.ui.View()
+        dairyView.add_item(lotoButton)
+
+        lotoReset = pd.read_csv(REPORT_PATH)
+        lotoReset["クジびきけん"] = 1
+        lotoReset.to_csv(REPORT_PATH, index=False)
+
+        dairyChannel = client.get_channel(DAIRY_CHANNEL_ID)
+        day = datetime.now(ZoneInfo("Asia/Tokyo"))
+        weak_dict = {0: "月", 1: "火", 2: "水", 3: "木", 4: "金", 5: "土", 6: "日"}
+        await dairyChannel.send(
+            f'日付が変わりました。 {day.strftime("%Y/%m/%d")} ({weak_dict[day.weekday()]})',
+            embeds=[show_calendar(day), show_senryu(True), dairyIdEmbed],
+            view=dairyView,
+        )
+
+
+# おこづかいランキングを表示するコマンド
+@tree.command(
+    name="pocketmoney", description="おこづかいの残高照会をします"
+)
+@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
+@discord.app_commands.describe()
+async def slash_pocketmoney(interaction: discord.Interaction):
+    user_id = interaction.user.id
+    money = ub.report(user_id, "おこづかい", 0)
+    df = pd.read_csv(REPORT_PATH, dtype={"ユーザーID": str})
+    user_id = str(user_id)
+
+    user_wallet = df[["ユーザーID", "おこづかい"]]
+    user_wallet_sorted = user_wallet.sort_values(
+        by="おこづかい", ascending=False
+    ).reset_index(drop=True)
+
+    # ランキングを作成し順位を取得
+    max_wallet = 0
+    userRank = 0
+    for i in range(1, len(user_wallet_sorted) + 1):
+        if max_wallet == user_wallet_sorted["おこづかい"][i - 1]:
+            rank = user_wallet_sorted.loc[i - 2, "rank"]
+        else:
+            max_wallet = user_wallet_sorted["おこづかい"][i - 1]
+            rank = i
+        user_wallet_sorted.loc[i - 1, "rank"] = rank
+        if user_wallet_sorted.loc[i - 1, "ユーザーID"] == user_id:
+            userRank = rank
+
+        if userRank != 0 and i >= 5:
+            break
+    # ランキングのトップ5を取得
+    top_n = 5
+    top_users = user_wallet_sorted.head(top_n)
+
+    ranking_list = top_users.values.tolist()
+
+    pdwGuild = await client.fetch_guild(PDW_SERVER_ID, with_counts=True)
+    author = ub.attachment_file("resource/image/mom_johto.png")
+    embed = ub_embed.balance(
+        userName=interaction.user.name,
+        pocketMoney=money,
+        numOfPeople=pdwGuild.approximate_member_count,
+        userRank=userRank,
+        rank_list=ranking_list,
+        sendTime=datetime.now(ZoneInfo("Asia/Tokyo")),
+        authorPath=author[1],
+    )
+
+    await interaction.response.send_message(
+        file=author[0], embed=embed, ephemeral=True
+    )
+
+
 # BOTの起動
 load_dotenv()
 client.run(os.environ.get("DISCORD_TOKEN"), reconnect=True)
