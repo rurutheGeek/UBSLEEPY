@@ -57,15 +57,14 @@ async def on_ready():  # bot起動時
 @tasks.loop(seconds=30)
 async def post_logs():
     try:
-        with open("log/system_log.txt", "r+", encoding="utf-8") as file:
+        with open(SYSTEMLOG_PATH, "r+", encoding="utf-8") as file:
             file.seek(0)
             logStrs = file.read()
             if logStrs:
                 channel = client.get_channel(LOG_CHANNEL_ID)
                 await channel.send(logStrs)
                 file.truncate(0)
-                sys.stdout.flush()
-                
+
     except FileNotFoundError:
         pass
 

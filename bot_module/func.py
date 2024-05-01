@@ -4,6 +4,7 @@
 from .config import *
 
 import os
+import getpass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import random
@@ -24,7 +25,7 @@ def output_log(logStr):
       出力するログの文字列
     """
     dt = datetime.now(ZoneInfo("Asia/Tokyo"))
-    logstr = f"[{dt.hour:02}:{dt.minute:02}:{dt.second:02}|{os.getlogin()}] {logStr}"
+    logstr = f"[{dt.hour:02}:{dt.minute:02}:{dt.second:02}|{getpass.getuser()}] {logStr}"
     # ログをコンソールに表示する
     print(logstr)
     # ログをファイルに出力し,30秒ごとに投稿する
