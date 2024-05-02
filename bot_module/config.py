@@ -2,12 +2,12 @@
 # config.py
 import json
 import pandas as pd
+import sys
 ####################################################################################################
 #グローバル変数の宣言
 QUIZ_PROCESSING_FLAG = 0  # クイズ処理中フラグ
 BAKUSOKU_MODE = True
 
-DEBUG_MODE = False
 DEVELOPER_GUILD_ID=""
 PDW_SERVER_ID=""
 DEVELOPER_USER_ID=""
@@ -53,6 +53,10 @@ BQ_FILTER_DICT = {}
 
 client = None
 
+DEBUG_MODE = False
+# 引数'debug'が指定されているとき,デバッグモードで起動
+if len(sys.argv) > 1 and sys.argv[1] == "debug":
+    DEBUG_MODE = True
 
 def load_config():
     global GLOBAL_BRELOOM_DF, BQ_FILTERED_DF, BQ_FILTER_DICT

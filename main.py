@@ -28,19 +28,12 @@ import bot_module.embed as ub_embed
 
 #===================================================================================================
 #事前設定
-
-# 引数'debug'が指定されているとき,デバッグモードで起動
-if len(sys.argv) > 1 and sys.argv[1] == "debug":
-    DEBUG_MODE = True
-
 # main.pyのディレクトリに移動
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
-
 
 #クライアントを作成
 client = discord.Client(intents=discord.Intents.all(), activity=discord.Activity(name="研修チュウ", type=discord.ActivityType.unknown))
 tree = discord.app_commands.CommandTree(client)
-
 
 #===================================================================================================
 #起動時の処理
@@ -51,7 +44,6 @@ async def on_ready():
     if DEBUG_MODE:
         ub.output_log("debugモードで起動します")
     
-    ub.output_log(f"現在のディレクトリ: {os.getcwd()}")
     if len(GUILD_IDS) == 0:
         ub.output_log("登録済のサーバーが0個です")
     else:
@@ -125,15 +117,14 @@ async def daily_bonus(now: datetime = None, channelid: int=DAIRY_CHANNEL_ID):
 
         dairyChannel = client.get_channel(channelid)
         day = datetime.now(ZoneInfo("Asia/Tokyo"))
-        weak_dict = {0: "月", 1: "火", 2: "水", 3: "木", 4: "金", 5: "土", 6: "日"}
         await dairyChannel.send(
-            f'日付が変わりました。 {day.strftime("%Y/%m/%d")} ({weak_dict[day.weekday()]})',
+            f'日付が変わりました。 {day.strftime("%Y/%m/%d")} ({WEAK_DICT[str(day.weekday())]})',
             embeds=[ub.show_calendar(day), ub.show_senryu(True), dairyIdEmbed],
             view=dairyView,
         )
 
 #===================================================================================================
-# スラッシュコマンド登録
+# スラッシュコマンド
 
 @tree.command(name="q", description="現在の出題設定に基づいてクイズを出題します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
@@ -267,10 +258,10 @@ async def slash_pocketmoney(interaction: discord.Interaction):
 #---------------------------------------------------------------------------------------------------
 #管理者権限が必要なコマンド      
 @tree.command(name="devtest", description="開発者用テストコマンド")
-@discord.app_commands.describe(channelid="投稿するチャンネルID")
+@discord.app_commands.describe(channel="投稿するチャンネルID")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 @discord.app_commands.default_permissions(administrator=True)
-async def slash_devtest(interaction: discord.Interaction, channelid: int=LOG_CHANNEL_ID):
+async def slash_devtest(interaction: discord.Interaction, channel: discord.TextChannel = None):
     # テストしたい処理をここに書く
     await interaction.response.send_message(f"テストコマンドが実行されました", ephemeral=True)
 
@@ -281,7 +272,6 @@ async def slash_devtest(interaction: discord.Interaction, channelid: int=LOG_CHA
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 @discord.app_commands.default_permissions(administrator=True)
 async def slash_devcmd(interaction: discord.Interaction, key: str, value: str):
-    #.send_message(f"`{value}`\n実行完了", ephemeral=True)
     if not interaction.user.guild_permissions.administrator:
         await interaction.response.send_message(f"管理者権限がありません", ephemeral=True)
     elif not DEBUG_MODE:
@@ -302,47 +292,17 @@ async def slash_devcmd(interaction: discord.Interaction, key: str, value: str):
             await interaction.response.send_message(f"`{value}`\nエラーが発生しました\n```{e}```", ephemeral=True)
  
 
-@tree.command(name="devreload", description="ログイン投稿をテストします")
-@discord.app_commands.describe(channelid="投稿するチャンネルID")
-@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
-@discord.app_commands.default_permissions(administrator=True)
-async def slash_devreload(interaction: discord.Interaction, channelid: int=DAIRY_CHANNEL_ID):
-        load_config()
-        ub.output_log("config.jsonをリロードしました")
-        await interaction.response.send_message(f"config.jsonを読み込み直しました", ephemeral=True)
-
-
 @tree.command(name="devlogin", description="ログイン投稿をテストします")
-@discord.app_commands.describe(channelid="投稿するチャンネルID")
+@discord.app_commands.describe(channel="投稿するチャンネル")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 @discord.app_commands.default_permissions(administrator=True)
-async def slash_devlogin(interaction: discord.Interaction, channelid: int=DAIRY_CHANNEL_ID):
-    await daily_bonus(datetime.now(ZoneInfo("Asia/Tokyo")).replace(hour=5, minute=0),DAIRY_CHANNEL_ID)
-    await interaction.response.send_message(f"ログインジョブを実行しました", ephemeral=True)
-
-
-@tree.command(name="devnotice", description="botのステータスメッセージを変更します")
-@discord.app_commands.describe(message="ステータスメッセージ")
-@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
-@discord.app_commands.default_permissions(administrator=True)
-async def slash_devnotice(
-    interaction: discord.Interaction, message: str = "キノコのほうし"
-):
-    if message is not None:
-        await client.change_presence(
-            activity=discord.Activity(
-                name=message, type=discord.ActivityType.playing
-            )
-        )
+async def slash_devlogin(interaction: discord.Interaction, channel: discord.TextChannel = None):
+    if channel:
+        channelid = channel.id
     else:
-        await client.change_presence(
-            activity=discord.Activity(
-                name="キノコのほうし", type=discord.ActivityType.playing
-            )
-        )
-    await interaction.response.send_message(
-        f"アクティビティが **{message}** に変更されました", ephemeral=True
-    )
+        channelid = DAIRY_CHANNEL_ID
+    await daily_bonus(datetime.now(ZoneInfo("Asia/Tokyo")).replace(hour=5, minute=0),channelid)
+    await interaction.response.send_message(f"ログインジョブを実行しました", ephemeral=True)
 
 
 @tree.command(
@@ -357,13 +317,12 @@ async def slash_devimport(interaction: discord.Interaction):
             )
         else:
             GUILD_IDS.append(interaction.guild.id)
-            # config.jsonに追加
-            with open("config.json", "r") as file:
+            with open("config.json", "r", encoding="utf-8") as file:
                 config_dict = json.load(file)
 
             config_dict["DEVELOP_ID_DICT"]["GUILD_IDS"] = GUILD_IDS
-            with open("config.json", "w") as file:
-                json.dump(config_dict, file, indent=4)
+            with open("config.json", "w", encoding='utf-8') as file:
+                json.dump(config_dict, file, indent=4, ensure_ascii=False)
                 await tree.sync(guild=discord.Object(id={interaction.guild.id}))
                 await interaction.response.send_message(
                     "このサーバーにギルドコマンドを登録しました", ephemeral=True
@@ -727,16 +686,42 @@ async def on_button_click(interaction: discord.Interaction):
             text = PRIZE_DICT[matchCount]["text"]
             place = PRIZE_DICT[matchCount]["place"]
 
+            pocketMoney=ub.report(interaction.user.id,"おこづかい",value)
+
+            dialogText = f"\n"
+            #おこづかいランキングを確認し,1位になっていた場合ロールを付与する
+            df = pd.read_csv(REPORT_PATH, dtype={"ユーザーID": str})
+            user_wallet = df[["ユーザーID", "おこづかい"]]
+            user_wallet_sorted = user_wallet.sort_values(
+                by="おこづかい", ascending=False
+            ).reset_index(drop=True)
+
+            if pocketMoney==user_wallet_sorted.loc[0, "おこづかい"]:
+                dialogText = f"ロロ{EXCLAMATION_ICON}{interaction.guild.name}で いちばんの おかねもち だロト{EXCLAMATION_ICON}\n"
+
+                menymoneyRole=interaction.user.guild.get_role(MENYMONEY_ROLE_ID)
+                if menymoneyRole not in interaction.user.roles:
+                    ub.output_log(f"おこづかい一位が変わりました: {interaction.user.name}")
+                    await interaction.user.add_roles(menymoneyRole)
+                    ub.output_log(f"ロールを付与しました: {interaction.user.name}にID{MENYMONEY_ROLE_ID}")
+                    for i in range(1, len(user_wallet_sorted)):
+                        if pocketMoney > user_wallet_sorted.loc[i, "おこづかい"] and menymoneyRole in interaction.user.roles:
+                            await interaction.user.remove_roles(menymoneyRole)
+                            ub.output_log(f"ロールを剥奪しました: {interaction.user.name}にID{MENYMONEY_ROLE_ID}")
+                        else:
+                            break
+
             lotoEmbed = discord.Embed(
                 title=text,
                 color=0xFF99C2,
                 description=f"{place}の 商品 **{prize}**をプレゼントだロ{BANGBANG_ICON}\n"\
+                    f"{dialogText}"\
                     f"それじゃあ またの 挑戦を お待ちしてるロ~~{EXCLAMATION_ICON}",
             )
             lotoEmbed.set_thumbnail(url=f"{EX_SOURCE_LINK}icon/{prize}.png")
             lotoEmbed.add_field(
                 name=f"{interaction.user.name}は {prize}を 手に入れた!",
-                value=f'売却価格: {value}えん\nおこづかい: {ub.report(interaction.user.id,"おこづかい",value)}えん',
+                value=f'売却価格: {value}えん\nおこづかい: {pocketMoney}えん',
                 inline=False,
             )
             lotoEmbed.set_author(name=f"あなたのID: {userId}")
@@ -744,6 +729,8 @@ async def on_button_click(interaction: discord.Interaction):
 
             ub.report(interaction.user.id, "クジびきけん", -1)  # クジの回数を減らす
             await interaction.response.send_message(embed=lotoEmbed, ephemeral=True)
+            
+            
 
 
 #===================================================================================================

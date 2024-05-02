@@ -1,5 +1,5 @@
 {
-    "DEVELOP_ID_DICT":{
+    "DEVELOP_ID_DICT": {
         "DEVELOPER_USER_ID": 563436616811675658,
         "DEVELOPER_GUILD_ID": "1140787268370583634",
         "PDW_SERVER_ID": "1067125843647791114",
@@ -10,7 +10,6 @@
     },
     "GUILD_DICT": {
         "1067125843647791114": {
-            "GUILD_NAME": "ポーガクインドリームワールド",
             "DEBUG_CHANNEL_ID": 1081568799624536085,
             "GUIDELINE_CHANNEL_ID": 1067423922477355048,
             "STAGE_CHANNEL_ID": 1088518773461491892,
@@ -23,13 +22,12 @@
             "STAGEHOST_ROLE_ID": 1079328119992893490,
             "MENYMONEY_ROLE_ID": 1234064125030699041
         },
-        "1140787268370583634":{
-            "GUILD_NAME": "エーテルル財団",
+        "1140787268370583634": {
             "DEBUG_CHANNEL_ID": 1140787559325249717,
             "GUIDELINE_CHANNEL_ID": 1140787559325249717,
             "STAGE_CHANNEL_ID": 1140787559325249717,
             "DAIRY_CHANNEL_ID": 1140787559325249717,
-            "HELLO_CHANNEL_ID": 1140787269280743666,
+            "HELLO_CHANNEL_ID": 1141130853469143093,
             "REACTIONROLE_CHANNEL_ID": 1140787559325249717,
             "CALLSTATUS_CHANNEL_ID": 1140787559325249717,
             "LOG_CHANNEL_ID": 1140787559325249717,
@@ -61,7 +59,7 @@
     "LINK_DICT": {
         "EX_SOURCE_LINK": "https://pokecries.nobody.jp/content/resources/"
     },
-    "SYSTEM_DICT_DICT":{
+    "SYSTEM_DICT_DICT": {
         "QUIZNAME_DICT": {
             "種族値クイズ": "bq",
             "物理特殊クイズ": "acq",
@@ -137,7 +135,7 @@
                 "value": 1500,
                 "text": "",
                 "place": "残念賞"
-            }, 
+            },
             "1": {
                 "prize": "きんのたま",
                 "value": 5000,
