@@ -1,19 +1,8 @@
 ﻿# -*- coding: utf-8 -*-
 # config.py
-import os
-import discord
-import pandas as pd
 import json
+import pandas as pd
 import sys
-####################################################################################################
-# 引数'debug'が指定されているとき,デバッグモードで起動
-DEBUG_MODE = False
-if len(sys.argv) > 1 and sys.argv[1] == "debug":
-    DEBUG_MODE = True
-
-# main.pyのディレクトリに移動
-os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 ####################################################################################################
 #グローバル変数の宣言
 QUIZ_PROCESSING_FLAG = 0  # クイズ処理中フラグ
@@ -57,12 +46,20 @@ BASE_STATS_DICT={}
 WEAK_DICT={}
 TYPE_COLOR_DICT={}
 PRIZE_DICT={}
-GLOBAL_BRELOOM_DF=pd.DataFrame()
+DEFAULT_FILTER_DICT={}
+GLOBAL_BRELOOM_DF=None
+BQ_FILTERED_DF = None
+BQ_FILTER_DICT = {}
 
-####################################################################################################
+client = None
+
+DEBUG_MODE = False
+# 引数'debug'が指定されているとき,デバッグモードで起動
+if len(sys.argv) > 1 and sys.argv[1] == "debug":
+    DEBUG_MODE = True
 
 def load_config():
-    global GLOBAL_BRELOOM_DF
+    global GLOBAL_BRELOOM_DF, BQ_FILTERED_DF, BQ_FILTER_DICT
     config_dict = []
     try:
         with open("config.json", "r", encoding="utf-8") as file:
@@ -84,7 +81,7 @@ def load_config():
     link_dict = config_dict["LINK_DICT"]
     path_dict = config_dict["PATH_DICT"]
     system_dict_dict = config_dict["SYSTEM_DICT_DICT"]
-
+    
     globals().update(guild_dict)
     globals().update(emoji_id_dict)
     globals().update(link_dict)
@@ -96,10 +93,9 @@ def load_config():
     GLOBAL_BRELOOM_DF["ぜんこくずかんナンバー"] = GLOBAL_BRELOOM_DF[
         "ぜんこくずかんナンバー"
     ].apply(lambda x: str(int(x)) if x.is_integer() else str(x))
+    BQ_FILTERED_DF = GLOBAL_BRELOOM_DF.copy
+    BQ_FILTER_DICT = DEFAULT_FILTER_DICT
 
-####################################################################################################
-#起動時にconfig.jsonを読み込む
+
+#config.jsonを読み込む
 load_config()
-
-activity = discord.Activity(name="研修チュウ", type=discord.ActivityType.unknown)
-client = discord.Client(intents=discord.Intents.all(), activity=activity)
