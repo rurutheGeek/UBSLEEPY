@@ -4,7 +4,7 @@
 
 # 標準ライブラリ
 import os
-#import sys
+import sys
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import random
@@ -25,18 +25,25 @@ from dotenv import load_dotenv  # type: ignore
 from bot_module.config import *
 import bot_module.func as ub
 import bot_module.embed as ub_embed
-####################################################################################################
 
-BQ_FILTERED_DF = GLOBAL_BRELOOM_DF.copy
-BQ_FILTER_DICT = {"進化段階": ["最終進化", "進化しない"]}
+#===================================================================================================
+#事前設定
+# main.pyのディレクトリに移動
+os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
+#クライアントを作成
+client = discord.Client(intents=discord.Intents.all(), activity=discord.Activity(name="研修チュウ", type=discord.ActivityType.unknown))
 tree = discord.app_commands.CommandTree(client)
 
+#===================================================================================================
+#起動時の処理
+
 @client.event
-async def on_ready():  # bot起動時
+async def on_ready():
     global BQ_FILTERED_DF
     if DEBUG_MODE:
-        ub.output_log('debugモードで起動します')
+        ub.output_log("debugモードで起動します")
+    
     if len(GUILD_IDS) == 0:
         ub.output_log("登録済のサーバーが0個です")
     else:
@@ -46,7 +53,9 @@ async def on_ready():  # bot起動時
             syncGuildName += f"\n#{i} {client.get_guild(guild_id).name}"
             await tree.sync(guild=discord.Object(id=guild_id))
             i += 1
-        ub.output_log(f"登録済のサーバーを{len(GUILD_IDS)}個読み込みました{syncGuildName}")
+        ub.output_log(
+            f"登録済のサーバーを{len(GUILD_IDS)}個読み込みました{syncGuildName}"
+        )
 
     BQ_FILTERED_DF = ub.filter_dataframe(BQ_FILTER_DICT).fillna("なし")
 
@@ -54,6 +63,9 @@ async def on_ready():  # bot起動時
     if not post_logs.is_running():
         post_logs.start()
 
+#===================================================================================================
+#定期的に実行する処理
+        
 @tasks.loop(seconds=30)
 async def post_logs():
     try:
@@ -62,66 +74,57 @@ async def post_logs():
             logStrs = file.read()
             if logStrs:
                 channel = client.get_channel(LOG_CHANNEL_ID)
-                await channel.send(logStrs)
+                #文字数制限のため,2000以上なら分割して送信
+                if len(logStrs) > 2000:
+                    for i in range(0, len(logStrs), 2000):
+                        await channel.send(logStrs[i : i + 2000])
+                else:
+                    await channel.send(logStrs)
                 file.truncate(0)
 
     except FileNotFoundError:
         pass
 
+@tasks.loop(seconds=60)
+async def daily_bonus(now: datetime = None, channelid: int=DAIRY_CHANNEL_ID):
+    if now is None:
+        now = datetime.now(ZoneInfo("Asia/Tokyo"))
+    if now.hour == 5 and now.minute == 0:
+        ub.output_log("ログインジョブを実行します")
+        todayId = str(random.randint(0, 99999)).zfill(5)
 
-# スラッシュコマンド登録
-@tree.command(
-    name="import", description="このサーバーにギルドコマンドをインポートします"
-)
-async def slash_test(interaction: discord.Interaction):
-    if interaction.user.guild_permissions.administrator:
-        if interaction.guild.id in GUILD_IDS:
-            await interaction.response.send_message(
-                "このサーバーはすでに登録されています", ephemeral=True
-            )
-        else:
-            GUILD_IDS.append(interaction.guild.id)
-            # config.jsonに追加
-            with open("config.json", "r") as file:
-                config_dict = json.load(file)
-
-            config_dict["DEVELOP_ID_DICT"]["GUILD_IDS"] = GUILD_IDS
-            with open("config.json", "w") as file:
-                json.dump(config_dict, file, indent=4)
-                await tree.sync(guild=discord.Object(id={interaction.guild.id}))
-                await interaction.response.send_message(
-                    "このサーバーにギルドコマンドを登録しました", ephemeral=True
-                )
-
-
-@tree.command(name="notice", description="botのステータスメッセージを変更します")
-@discord.app_commands.describe(message="ステータスメッセージ")
-@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
-async def slash_notice(
-    interaction: discord.Interaction, message: str = "キノコのほうし"
-):
-    if interaction.user.guild_permissions.administrator:
-        if message is not None:
-            await client.change_presence(
-                activity=discord.Activity(
-                    name=message, type=discord.ActivityType.playing
-                )
-            )
-        else:
-            await client.change_presence(
-                activity=discord.Activity(
-                    name="キノコのほうし", type=discord.ActivityType.playing
-                )
-            )
-        await interaction.response.send_message(
-            f"アクティビティが **{message}** に変更されました", ephemeral=True
+        dairyIdEmbed = discord.Embed(
+            title="IDくじセンター 抽選コーナー",
+            color=0xFF297E,
+            description=f"くじのナンバーと ユーザーIDが みごと あってると ステキな 景品を もらえちゃうんだロ{BANGBANG_ICON}",
         )
-    else:
-        await interaction.response.send_message(
-            f"""```{client.user.name}は
-{random.choice(["めいれいを むしした!", "なまけている!", "そっぽを むいた!", "いうことを きかない!", "しらんぷりした!"])}```"""
+        dairyIdEmbed.add_field(
+            name=f"{BALL_ICON}今日のナンバー", value=f"**{todayId}**", inline=False
+        )
+        dairyIdEmbed.set_footer(text="No.15 IDくじ")
+
+        lotoButton = discord.ui.Button(
+            label="くじをひく",
+            style=discord.ButtonStyle.primary,
+            custom_id=f'lotoIdButton:{todayId}:{datetime.now(ZoneInfo("Asia/Tokyo")).date()}',
+        )
+        dairyView = discord.ui.View()
+        dairyView.add_item(lotoButton)
+
+        lotoReset = pd.read_csv(REPORT_PATH)
+        lotoReset["クジびきけん"] = 1
+        lotoReset.to_csv(REPORT_PATH, index=False)
+
+        dairyChannel = client.get_channel(channelid)
+        day = datetime.now(ZoneInfo("Asia/Tokyo"))
+        await dairyChannel.send(
+            f'日付が変わりました。 {day.strftime("%Y/%m/%d")} ({WEAK_DICT[str(day.weekday())]})',
+            embeds=[ub.show_calendar(day), ub.show_senryu(True), dairyIdEmbed],
+            view=dairyView,
         )
 
+#===================================================================================================
+# スラッシュコマンド
 
 @tree.command(name="q", description="現在の出題設定に基づいてクイズを出題します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
@@ -200,6 +203,133 @@ async def slash_bmode(interaction: discord.Interaction, mode: str = None):
         f"連続出題が{'ON' if BAKUSOKU_MODE else 'OFF'}になりました"
     )
 
+
+# おこづかいランキングを表示するコマンド
+@tree.command(name="pocketmoney", description="おこづかいの残高照会をします")
+@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
+@discord.app_commands.describe()
+async def slash_pocketmoney(interaction: discord.Interaction):
+    user_id = interaction.user.id
+    money = ub.report(user_id, "おこづかい", 0)
+    df = pd.read_csv(REPORT_PATH, dtype={"ユーザーID": str})
+    user_id = str(user_id)
+
+    user_wallet = df[["ユーザーID", "おこづかい"]]
+    user_wallet_sorted = user_wallet.sort_values(
+        by="おこづかい", ascending=False
+    ).reset_index(drop=True)
+
+    # ランキングを作成し順位を取得
+    max_wallet = 0
+    userRank = 0
+    for i in range(1, len(user_wallet_sorted) + 1):
+        if max_wallet == user_wallet_sorted["おこづかい"][i - 1]:
+            rank = user_wallet_sorted.loc[i - 2, "rank"]
+        else:
+            max_wallet = user_wallet_sorted["おこづかい"][i - 1]
+            rank = i
+        user_wallet_sorted.loc[i - 1, "rank"] = rank
+        if user_wallet_sorted.loc[i - 1, "ユーザーID"] == user_id:
+            userRank = rank
+
+        if userRank != 0 and i >= 5:
+            break
+    # ランキングのトップ5を取得
+    top_n = 5
+    top_users = user_wallet_sorted.head(top_n)
+
+    ranking_list = top_users.values.tolist()
+
+    pdwGuild = await client.fetch_guild(PDW_SERVER_ID, with_counts=True)
+    author = ub.attachment_file("resource/image/mom_johto.png")
+    embed = ub_embed.balance(
+        userName=interaction.user.name,
+        pocketMoney=money,
+        numOfPeople=pdwGuild.approximate_member_count,
+        userRank=userRank,
+        rank_list=ranking_list,
+        sendTime=datetime.now(ZoneInfo("Asia/Tokyo")),
+        authorPath=author[1],
+    )
+
+    await interaction.response.send_message(file=author[0], embed=embed, ephemeral=True)
+
+
+#---------------------------------------------------------------------------------------------------
+#管理者権限が必要なコマンド      
+@tree.command(name="devtest", description="開発者用テストコマンド")
+@discord.app_commands.describe(channel="投稿するチャンネルID")
+@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
+@discord.app_commands.default_permissions(administrator=True)
+async def slash_devtest(interaction: discord.Interaction, channel: discord.TextChannel = None):
+    # テストしたい処理をここに書く
+    await interaction.response.send_message(f"テストコマンドが実行されました", ephemeral=True)
+
+
+#使用注意!デバッグモード時のtokenを知っている管理者しか実行できない
+@tree.command(name="devcmd", description="開発者用コンソールを呼び出す")
+@discord.app_commands.describe(key="キーワード", value="コマンド")
+@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
+@discord.app_commands.default_permissions(administrator=True)
+async def slash_devcmd(interaction: discord.Interaction, key: str, value: str):
+    if not interaction.user.guild_permissions.administrator:
+        await interaction.response.send_message(f"管理者権限がありません", ephemeral=True)
+    elif not DEBUG_MODE:
+        await interaction.response.send_message(f"デバッグモードでのみ使用可能です", ephemeral=True)
+    elif not key == os.environ.get("DISCORD_TOKEN"):
+        await interaction.response.send_message(f"keyが違います", ephemeral=True)
+    else:
+        ub.output_log(f"コンソールが呼び出されました: {interaction.user.name}")
+        ub.output_log(f"cmd: `{value}`")
+        try:
+            #文字列にawaitが入っている場合 awaitを取り除きawait evalする
+            if value.startswith("await"):
+                await eval(value.split("await ")[1])
+            else:
+                eval(value)
+            await interaction.response.send_message(f"`{value}`\n実行完了", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"`{value}`\nエラーが発生しました\n```{e}```", ephemeral=True)
+ 
+
+@tree.command(name="devlogin", description="ログイン投稿をテストします")
+@discord.app_commands.describe(channel="投稿するチャンネル")
+@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
+@discord.app_commands.default_permissions(administrator=True)
+async def slash_devlogin(interaction: discord.Interaction, channel: discord.TextChannel = None):
+    if channel:
+        channelid = channel.id
+    else:
+        channelid = DAIRY_CHANNEL_ID
+    await daily_bonus(datetime.now(ZoneInfo("Asia/Tokyo")).replace(hour=5, minute=0),channelid)
+    await interaction.response.send_message(f"ログインジョブを実行しました", ephemeral=True)
+
+
+@tree.command(
+    name="devimport", description="このサーバーにギルドコマンドをインポートします"
+)
+@discord.app_commands.default_permissions(administrator=True)
+async def slash_devimport(interaction: discord.Interaction):
+    if interaction.user.guild_permissions.administrator:
+        if interaction.guild.id in GUILD_IDS:
+            await interaction.response.send_message(
+                "このサーバーはすでに登録されています", ephemeral=True
+            )
+        else:
+            GUILD_IDS.append(interaction.guild.id)
+            with open("config.json", "r", encoding="utf-8") as file:
+                config_dict = json.load(file)
+
+            config_dict["DEVELOP_ID_DICT"]["GUILD_IDS"] = GUILD_IDS
+            with open("config.json", "w", encoding='utf-8') as file:
+                json.dump(config_dict, file, indent=4, ensure_ascii=False)
+                await tree.sync(guild=discord.Object(id={interaction.guild.id}))
+                await interaction.response.send_message(
+                    "このサーバーにギルドコマンドを登録しました", ephemeral=True
+                )
+
+#===================================================================================================
+#イベントで発火する処理
 
 # メッセージの送受信を観測したときの処理
 @client.event
@@ -385,7 +515,9 @@ async def on_interaction(interaction: discord.Interaction):
                 response += "\nサーバーが利用可能になりました"
                 ub.output_log(f"学籍番号が登録されました\n {member.name}: {studentId}")
             else:
-                ub.output_log(f"登録の修正を受け付けました\n {member.name}: {studentId}")
+                ub.output_log(
+                    f"登録の修正を受け付けました\n {member.name}: {studentId}"
+                )
             response += "\n`※このメッセージはあなたにしか表示されていません`"
 
             thanksEmbed = discord.Embed(
@@ -518,67 +650,92 @@ async def on_button_click(interaction: discord.Interaction):
         authModal.add_item(favePokeInput)
         await interaction.response.send_modal(authModal)
 
+    elif custom_id.startswith("lotoIdButton"):  # IDくじボタン
+        ub.output_log("IDくじを実行します")
+        # カスタムIDは,"lotoIdButton:00000:0000/00/00"という形式
+        lotoId = custom_id.split(":")[1]
+        birth = custom_id.split(":")[2]
+        now = datetime.now(ZoneInfo("Asia/Tokyo"))
+        today = now.date()
+        if now.hour < 5:
+            today = today - timedelta(days=1)
 
-comeout = """
-elif custom_id.startswith("lotoIdButton"): #IDくじボタン
-      ub.output_log("IDくじを実行します")
-      #カスタムIDは,"lotoIdButton:00000:0000/00/00"という形式
-      lotoId = custom_id.split(":")[1]
-      birth = custom_id.split(":")[2]
-      now = datetime.now(ZoneInfo("Asia/Tokyo"))
-      today = now.date()
-      if(now.hour < 5):
-        today = today - timedelta(days=1)
-      
-      if ub.report(interaction.user.id,"クジびきけん",0) == 0:
-        await interaction.response.send_message("くじが ひけるのは 1日1回 まで なんだロ……",ephemeral=True)
-      elif not birth   == str(today):
-        await interaction.response.send_message(f'それは 今日のIDくじ じゃないロ{EXCLAMATION_ICON}',ephemeral=True)
-      else:
-        shun='''prize_dict = {
-          0: ["ほしのすな", 1500, "", "残念賞"],
-          1: ["きんのたま", 5000, f'やったロ{EXCLAMATION_ICON} 1ケタ おんなじロ{EXCLAMATION_ICON}', "4等"],
-          2: ["すいせいのかけら", 12500, f'2ケタが おんなじだったロミ{EXCLAMATION_ICON}', "3等"],
-          3: ["ガブリアスドール", 65000, f'ロミ{EXCLAMATION_ICON} 3ケタが おんなじロ{EXCLAMATION_ICON}', "2等"],
-          4: ["こだいのせきぞう", 200000, f'すごいロ{EXCLAMATION_ICON} 4ケタも おんなじロミ{EXCLAMATION_ICON}',"1等"],
-          5: ["たかそうなカード", 650000, f'ロミ~~{EXCLAMATION_ICON}{EXCLAMATION_ICON}{EXCLAMATION_ICON} 下5ケタ すべてが おんなじロ{EXCLAMATION_ICON}', "特等"],
-          6: ["きんのパッチールぞう", 1000000, "", ""]
-        }'''
-        userId = str(interaction.user.id)[-6:].zfill(5) #ID下6ケタを取得
-        
-        count = 0
-        for i in range(1, 6):
-          if userId[-i] == lotoId[-i]:
-            count += 1
-          else:
-            break
-        prize = PRIZE_DICT[count][0]
-        value = PRIZE_DICT[count][1]
-        text = PRIZE_DICT[count][2]
-        place = PRIZE_DICT[count][3]
-        
-        lotoEmbed = discord.Embed(
-          title=text,
-          color=0xff99c2,
-          description=f'{place}の 商品 **{prize}**をプレゼントだロ{BANGBANG_ICON}\nそれじゃあ またの 挑戦を お待ちしてるロ~~{EXCLAMATION_ICON}'
-        )
-        lotoEmbed.set_thumbnail(url=f'{EX_SOURCE_LINK}icon/{prize}.png')
-        lotoEmbed.add_field(
-          name=f'{interaction.user.name}は {prize}を 手に入れた!',
-          value=f'売却価格: {value}えん\nおこづかい: {ub.report(interaction.user.id,"おこづかい",value)}えん',
-          inline=False
-        )
-        lotoEmbed.set_author(name=f'あなたのID: {userId}')
-        lotoEmbed.set_footer(text="No.15 IDくじ")
-        
-        ub.report(interaction.user.id,"クジびきけん",-1) #クジの回数を減らす
-        await interaction.response.send_message(embed=lotoEmbed,ephemeral=True)
-        
-    elif custom_id.startswith("acq"):
-      await quiz("acq").try_response(interaction)
-      """
+        if not birth == str(today):
+            # 過去に投稿されたくじの場合
+            await interaction.response.send_message(
+                f"それは 今日のIDくじ じゃないロ{EXCLAMATION_ICON}", ephemeral=True
+            )
+        elif ub.report(interaction.user.id, "クジびきけん", 0) == 0:
+            # すでにくじを引いている場合
+            await interaction.response.send_message(
+                "くじが ひけるのは 1日1回 まで なんだロ……", ephemeral=True
+            )
+        else:
+            userId = str(interaction.user.id)[-6:].zfill(5)  # ID下6ケタを取得
+
+            matchCount = 0
+            for i in range(1, 6):
+                if userId[-i] == lotoId[-i]:
+                    matchCount += 1
+                else:
+                    break
+
+            matchCount=str(matchCount)
+            prize = PRIZE_DICT[matchCount]["prize"]
+            value = PRIZE_DICT[matchCount]["value"]
+            text = PRIZE_DICT[matchCount]["text"]
+            place = PRIZE_DICT[matchCount]["place"]
+
+            pocketMoney=ub.report(interaction.user.id,"おこづかい",value)
+
+            dialogText = f"\n"
+            #おこづかいランキングを確認し,1位になっていた場合ロールを付与する
+            df = pd.read_csv(REPORT_PATH, dtype={"ユーザーID": str})
+            user_wallet = df[["ユーザーID", "おこづかい"]]
+            user_wallet_sorted = user_wallet.sort_values(
+                by="おこづかい", ascending=False
+            ).reset_index(drop=True)
+
+            if pocketMoney==user_wallet_sorted.loc[0, "おこづかい"]:
+                dialogText = f"ロロ{EXCLAMATION_ICON}{interaction.guild.name}で いちばんの おかねもち だロト{EXCLAMATION_ICON}\n"
+
+                menymoneyRole=interaction.user.guild.get_role(MENYMONEY_ROLE_ID)
+                if menymoneyRole not in interaction.user.roles:
+                    ub.output_log(f"おこづかい一位が変わりました: {interaction.user.name}")
+                    await interaction.user.add_roles(menymoneyRole)
+                    ub.output_log(f"ロールを付与しました: {interaction.user.name}にID{MENYMONEY_ROLE_ID}")
+                    for i in range(1, len(user_wallet_sorted)):
+                        if pocketMoney > user_wallet_sorted.loc[i, "おこづかい"] and menymoneyRole in interaction.user.roles:
+                            await interaction.user.remove_roles(menymoneyRole)
+                            ub.output_log(f"ロールを剥奪しました: {interaction.user.name}にID{MENYMONEY_ROLE_ID}")
+                        else:
+                            break
+
+            lotoEmbed = discord.Embed(
+                title=text,
+                color=0xFF99C2,
+                description=f"{place}の 商品 **{prize}**をプレゼントだロ{BANGBANG_ICON}\n"\
+                    f"{dialogText}"\
+                    f"それじゃあ またの 挑戦を お待ちしてるロ~~{EXCLAMATION_ICON}",
+            )
+            lotoEmbed.set_thumbnail(url=f"{EX_SOURCE_LINK}icon/{prize}.png")
+            lotoEmbed.add_field(
+                name=f"{interaction.user.name}は {prize}を 手に入れた!",
+                value=f'売却価格: {value}えん\nおこづかい: {pocketMoney}えん',
+                inline=False,
+            )
+            lotoEmbed.set_author(name=f"あなたのID: {userId}")
+            lotoEmbed.set_footer(text="No.15 IDくじ")
+
+            ub.report(interaction.user.id, "クジびきけん", -1)  # クジの回数を減らす
+            await interaction.response.send_message(embed=lotoEmbed, ephemeral=True)
+            
+            
 
 
+#===================================================================================================
+#オブジェクト
+            
 class quiz:
     def __init__(self, quizName):
         self.quizName = quizName
@@ -1107,102 +1264,8 @@ class quiz:
         log_df = pd.concat([nRow, log_df]).reset_index(drop=True)
         log_df.to_csv(logPath, mode="w", header=True, index=False)
 
+#===================================================================================================
+# トークンの取得とBOTの起動
 
-@tasks.loop(seconds=60)
-async def daily_bonus(now: datetime = None):
-    if now is None:
-        now = datetime.now(ZoneInfo("Asia/Tokyo"))
-    if now.hour == 5 and now.minute == 0:
-        ub.output_log("ジョブを実行します")
-        todayId = str(random.randint(0, 99999)).zfill(5)
-
-        dairyIdEmbed = discord.Embed(
-            title="IDくじセンター 抽選コーナー",
-            color=0xFF297E,
-            description=f"くじのナンバーと ユーザーIDが みごと あってると ステキな 景品を もらえちゃうんだロ{BANGBANG_ICON}",
-        )
-        dairyIdEmbed.add_field(
-            name=f"{BALL_ICON}今日のナンバー", value=f"**{todayId}**", inline=False
-        )
-        dairyIdEmbed.set_footer(text="No.15 IDくじ")
-
-        lotoButton = discord.ui.Button(
-            label="くじをひく",
-            style=discord.ButtonStyle.primary,
-            custom_id=f'lotoIdButton:{todayId}:{datetime.now(ZoneInfo("Asia/Tokyo")).date()}',
-        )
-        dairyView = discord.ui.View()
-        dairyView.add_item(lotoButton)
-
-        lotoReset = pd.read_csv(REPORT_PATH)
-        lotoReset["クジびきけん"] = 1
-        lotoReset.to_csv(REPORT_PATH, index=False)
-
-        dairyChannel = client.get_channel(DAIRY_CHANNEL_ID)
-        day = datetime.now(ZoneInfo("Asia/Tokyo"))
-        weak_dict = {0: "月", 1: "火", 2: "水", 3: "木", 4: "金", 5: "土", 6: "日"}
-        await dairyChannel.send(
-            f'日付が変わりました。 {day.strftime("%Y/%m/%d")} ({weak_dict[day.weekday()]})',
-            embeds=[ub.show_calendar(day), ub.show_senryu(True), dairyIdEmbed],
-            view=dairyView,
-        )
-
-
-# おこづかいランキングを表示するコマンド
-@tree.command(
-    name="pocketmoney", description="おこづかいの残高照会をします"
-)
-@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
-@discord.app_commands.describe()
-async def slash_pocketmoney(interaction: discord.Interaction):
-    user_id = interaction.user.id
-    money = ub.report(user_id, "おこづかい", 0)
-    df = pd.read_csv(REPORT_PATH, dtype={"ユーザーID": str})
-    user_id = str(user_id)
-
-    user_wallet = df[["ユーザーID", "おこづかい"]]
-    user_wallet_sorted = user_wallet.sort_values(
-        by="おこづかい", ascending=False
-    ).reset_index(drop=True)
-
-    # ランキングを作成し順位を取得
-    max_wallet = 0
-    userRank = 0
-    for i in range(1, len(user_wallet_sorted) + 1):
-        if max_wallet == user_wallet_sorted["おこづかい"][i - 1]:
-            rank = user_wallet_sorted.loc[i - 2, "rank"]
-        else:
-            max_wallet = user_wallet_sorted["おこづかい"][i - 1]
-            rank = i
-        user_wallet_sorted.loc[i - 1, "rank"] = rank
-        if user_wallet_sorted.loc[i - 1, "ユーザーID"] == user_id:
-            userRank = rank
-
-        if userRank != 0 and i >= 5:
-            break
-    # ランキングのトップ5を取得
-    top_n = 5
-    top_users = user_wallet_sorted.head(top_n)
-
-    ranking_list = top_users.values.tolist()
-
-    pdwGuild = await client.fetch_guild(PDW_SERVER_ID, with_counts=True)
-    author = ub.attachment_file("resource/image/mom_johto.png")
-    embed = ub_embed.balance(
-        userName=interaction.user.name,
-        pocketMoney=money,
-        numOfPeople=pdwGuild.approximate_member_count,
-        userRank=userRank,
-        rank_list=ranking_list,
-        sendTime=datetime.now(ZoneInfo("Asia/Tokyo")),
-        authorPath=author[1],
-    )
-
-    await interaction.response.send_message(
-        file=author[0], embed=embed, ephemeral=True
-    )
-
-
-# BOTの起動
 load_dotenv()
 client.run(os.environ.get("DISCORD_TOKEN"), reconnect=True)

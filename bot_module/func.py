@@ -1,6 +1,5 @@
 ﻿# -*- coding: utf-8 -*-
 # func.py
-
 from .config import *
 
 import os
@@ -16,6 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 #import japanize_matplotlib
 import discord
+import json
 
 def output_log(logStr):
     """Botの動作ログをコンソールとLOG_CHANNELに出力する
@@ -218,6 +218,7 @@ def report(userId, repoIndex: str, modifi: int) -> int:
   int
   レポート後の値
   '''
+  output_log(f"レポートを確認します: {userId} {repoIndex}")
   reports = pd.read_csv(REPORT_PATH, index_col=0)
   
   if repoIndex not in reports.columns:
@@ -241,8 +242,6 @@ def report(userId, repoIndex: str, modifi: int) -> int:
     reports.loc[userId, repoIndex] += modifi
     reports.to_csv(REPORT_PATH, index=True, index_label="ユーザーID", float_format="%.0f") # 編集したデータをCSVファイルに書き込む
     output_log("レポートに書き込みました")
-  else:
-    output_log("レポートは変更されませんでした")
   
   return reports.loc[userId, repoIndex]
 
@@ -308,7 +307,7 @@ def show_calendar(day: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))) -> disco
   calendarTitle = BALL_ICON
   
   if day.date() == datetime.now(ZoneInfo("Asia/Tokyo")).date():
-    calendarTitle += f'{day.strftime("%Y/%m/%d")} ({WEAK_DICT[day.weekday()]}) 今日のできごと'
+    calendarTitle += f'{day.strftime("%Y/%m/%d")} ({WEAK_DICT[str(day.weekday())]}) 今日のできごと'
   else:
     calendarTitle += f'{day.strftime("%m/%d")}のできごと'
 
