@@ -689,27 +689,38 @@ async def on_button_click(interaction: discord.Interaction):
             pocketMoney=ub.report(interaction.user.id,"おこづかい",value)
 
             dialogText = f"\n"
-            #おこづかいランキングを確認し,1位になっていた場合ロールを付与する
-            df = pd.read_csv(REPORT_PATH, dtype={"ユーザーID": str})
-            user_wallet = df[["ユーザーID", "おこづかい"]]
-            user_wallet_sorted = user_wallet.sort_values(
-                by="おこづかい", ascending=False
-            ).reset_index(drop=True)
 
-            if pocketMoney==user_wallet_sorted.loc[0, "おこづかい"]:
-                dialogText = f"ロロ{EXCLAMATION_ICON}{interaction.guild.name}で いちばんの おかねもち だロト{EXCLAMATION_ICON}\n"
+            try:
+                #おこづかいランキングを確認し,1位になっていた場合ロールを付与する
+                df = pd.read_csv(REPORT_PATH, dtype={"ユーザーID": str})
+                user_wallet = df[["ユーザーID", "おこづかい"]]
+                user_wallet_sorted = user_wallet.sort_values(
+                    by="おこづかい", ascending=False
+                ).reset_index(drop=True)
 
-                menymoneyRole=interaction.user.guild.get_role(MENYMONEY_ROLE_ID)
-                if menymoneyRole not in interaction.user.roles:
-                    ub.output_log(f"おこづかい一位が変わりました: {interaction.user.name}")
-                    await interaction.user.add_roles(menymoneyRole)
-                    ub.output_log(f"ロールを付与しました: {interaction.user.name}にID{MENYMONEY_ROLE_ID}")
-                    for i in range(1, len(user_wallet_sorted)):
-                        if pocketMoney > user_wallet_sorted.loc[i, "おこづかい"] and menymoneyRole in interaction.user.roles:
-                            await interaction.user.remove_roles(menymoneyRole)
-                            ub.output_log(f"ロールを剥奪しました: {interaction.user.name}にID{MENYMONEY_ROLE_ID}")
-                        else:
-                            break
+                if pocketMoney==user_wallet_sorted.loc[0, "おこづかい"]:
+                    dialogText = f"ロロ{EXCLAMATION_ICON}{interaction.guild.name}で いちばんの おかねもち だロト{EXCLAMATION_ICON}\n"
+                    #おかねもちロール付与の処理
+                    menymoneyRole=interaction.user.guild.get_role(MENYMONEY_ROLE_ID)
+                    if menymoneyRole not in interaction.user.roles:
+                        ub.output_log(f"おこづかい一位が変わりました: {interaction.user.name}")
+                        await interaction.user.add_roles(menymoneyRole)
+                        ub.output_log(f"ロールを付与しました: {interaction.user.name}に{menymoneyRole.name}")
+
+                    #2位以下のおかねもちロールを剥奪する処理
+                    for i in range(0, len(user_wallet_sorted)):
+                        lowerUser=interaction.guild.get_member(int(user_wallet_sorted.loc[i, "ユーザーID"]))
+                        #インタラクションユーザーには実施しない
+                        if lowerUser and not interaction.user == lowerUser:
+                            if pocketMoney > user_wallet_sorted.loc[i, "おこづかい"]:
+                                if menymoneyRole in lowerUser.roles:
+                                    await lowerUser.remove_roles(menymoneyRole)
+                                    ub.output_log(f"ロールを剥奪しました: {lowerUser.name}から{menymoneyRole.name}")
+                                else:
+                                    break
+
+            except Exception as e:
+                ub.output_log(f"おこづかいランキングの処理でエラーが発生しました\n{e}")
 
             lotoEmbed = discord.Embed(
                 title=text,
@@ -731,8 +742,6 @@ async def on_button_click(interaction: discord.Interaction):
             await interaction.response.send_message(embed=lotoEmbed, ephemeral=True)
             
             
-
-
 #===================================================================================================
 #オブジェクト
             
