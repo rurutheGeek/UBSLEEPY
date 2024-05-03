@@ -25,24 +25,28 @@ from bot_module.config import *
 import bot_module.func as ub
 import bot_module.embed as ub_embed
 
-#===================================================================================================
-#事前設定
+# ===================================================================================================
+# 事前設定
 # main.pyのディレクトリに移動
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
-#クライアントを作成
-client = discord.Client(intents=discord.Intents.all(), activity=discord.Activity(name="研修チュウ", type=discord.ActivityType.unknown))
+# クライアントを作成
+client = discord.Client(
+    intents=discord.Intents.all(),
+    activity=discord.Activity(name="研修チュウ", type=discord.ActivityType.unknown),
+)
 tree = discord.app_commands.CommandTree(client)
 
-#===================================================================================================
-#起動時の処理
+# ===================================================================================================
+# 起動時の処理
+
 
 @client.event
 async def on_ready():
     global BQ_FILTERED_DF
     if DEBUG_MODE:
         ub.output_log("debugモードで起動します")
-    
+
     if len(GUILD_IDS) == 0:
         ub.output_log("登録済のサーバーが0個です")
     else:
@@ -64,25 +68,30 @@ async def on_ready():
     if not daily_bonus.is_running():
         daily_bonus.start()
 
-    #時報の投稿済みチェック (5時以降の起動で)
+    # 時報の投稿済みチェック (5時以降の起動で)
     now = datetime.now(ZoneInfo("Asia/Tokyo"))
-    if(now.hour >= 5):
+    if now.hour >= 5:
         dairyChannel = client.get_channel(DAIRY_CHANNEL_ID)
-        timeSignal=False
+        timeSignal = False
         async for message in dairyChannel.history(limit=3):
-            if message.author == client.user and now.strftime("%Y/%m/%d") in message.content:
-                timeSignal=True
+            if (
+                message.author == client.user
+                and now.strftime("%Y/%m/%d") in message.content
+            ):
+                timeSignal = True
                 break
-        
+
         if not timeSignal:
-            ub.output_log('本日の時報が未投稿のようです.時報の投稿を試みます')
+            ub.output_log("本日の時報が未投稿のようです.時報の投稿を試みます")
             await daily_bonus(now.replace(hour=5, minute=0, second=0, microsecond=0))
-        
+
         ub.output_log("botが起動しました")
 
-#===================================================================================================
-#定期的に実行する処理
-        
+
+# ===================================================================================================
+# 定期的に実行する処理
+
+
 @tasks.loop(seconds=30)
 async def post_logs():
     try:
@@ -91,7 +100,7 @@ async def post_logs():
             logStrs = file.read()
             if logStrs:
                 channel = client.get_channel(LOG_CHANNEL_ID)
-                #文字数制限のため,2000以上なら分割して送信
+                # 文字数制限のため,2000以上なら分割して送信
                 if len(logStrs) > 2000:
                     for i in range(0, len(logStrs), 2000):
                         await channel.send(logStrs[i : i + 2000])
@@ -102,8 +111,9 @@ async def post_logs():
     except FileNotFoundError:
         pass
 
+
 @tasks.loop(seconds=60)
-async def daily_bonus(now: datetime = None, channelid: int=DAIRY_CHANNEL_ID):
+async def daily_bonus(now: datetime = None, channelid: int = DAIRY_CHANNEL_ID):
     if now is None:
         now = datetime.now(ZoneInfo("Asia/Tokyo"))
     if now.hour == 5 and now.minute == 0:
@@ -140,8 +150,10 @@ async def daily_bonus(now: datetime = None, channelid: int=DAIRY_CHANNEL_ID):
             view=dairyView,
         )
 
-#===================================================================================================
+
+# ===================================================================================================
 # スラッシュコマンド
+
 
 @tree.command(name="q", description="現在の出題設定に基づいてクイズを出題します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
@@ -269,107 +281,141 @@ async def slash_pocketmoney(interaction: discord.Interaction):
         authorPath=attachImage[1],
     )
 
-    await interaction.response.send_message(file=attachImage[0], embed=embed, ephemeral=True)
+    await interaction.response.send_message(
+        file=attachImage[0], embed=embed, ephemeral=True
+    )
 
 
 @tree.command(name="calltitle", description="参加中の通話のタイトルを設定します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 @discord.app_commands.describe(title="参加中の通話の内容や目的")
 async def slash_calltitle(interaction: discord.Interaction, title: str):
-  if interaction.user.voice is not None:
-    if await CallPost(interaction.user.voice.channel).title(title):
-      await interaction.response.send_message(f'タイトルを`{title}`に変更しました',ephemeral=True)
+    if interaction.user.voice is not None:
+        if await CallPost(interaction.user.voice.channel).title(title):
+            await interaction.response.send_message(
+                f"タイトルを`{title}`に変更しました", ephemeral=True
+            )
+        else:
+            await interaction.response.send_message(
+                "通話通知が見つかりませんでした", ephemeral=True
+            )
     else:
-      await interaction.response.send_message("通話通知が見つかりませんでした",ephemeral=True)
-  else:
-    await interaction.response.send_message("あなたは通話チュウに見えません",ephemeral=True)
-    
+        await interaction.response.send_message(
+            "あなたは通話チュウに見えません", ephemeral=True
+        )
 
 
 @tree.command(name="invite", description="このチャンネルにメンバーを招待します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
-@discord.app_commands.describe(member='招待したいメンバー',anonymity='こっそり招待')
-async def slash_invite(interaction: discord.Interaction, member: discord.Member, anonymity: bool = False):
-  x = discord.Embed(
-    title="招待失敗",
-    color=0xff0000,
-    description=f'{member.name}に招待を送信できませんでした'
-  )
-  if not member.bot:
-    try:
-      attachImage = ub.attachment_file("resource/image/command/invite_mail.png")
-      inviteEmbed = discord.Embed(
-        title="おさそいメール",
-        color=0xfe71e4,
-        description=f"**{interaction.channel}** に招待されています!\n`招待を受け取りたくない場合はこのbotをブロックしてください`"
-      )
-      inviteEmbed.set_author(name=f'{interaction.user.name} からの招待' if not anonymity else "")
-      inviteEmbed.set_thumbnail(url=attachImage[1])
-      inviteEmbed.set_footer(text=datetime.now(ZoneInfo("Asia/Tokyo")).strftime("%Y/%m/%d %H:%M:%S"))
-      inviteLink = f'https://discord.com/channels/{interaction.guild.id}/{interaction.channel.id}'
-      linkButton = discord.ui.Button(label="参加する", style=discord.ButtonStyle.primary, url=inviteLink)
-      linkView = discord.ui.View()
-      linkView.add_item(linkButton)
-      await member.send(file=attachImage[0],embed=inviteEmbed,view=linkView)
-      
-      x = discord.Embed(
-        title="招待成功",
-        color=0x51ff2e,
-        description=f'{member.name}に招待を送信しました'
-       )
-      
-    except discord.errors.Forbidden:
-      pass
-  await interaction.response.send_message(embed=x,ephemeral=anonymity)
+@discord.app_commands.describe(member="招待したいメンバー", anonymity="こっそり招待")
+async def slash_invite(
+    interaction: discord.Interaction, member: discord.Member, anonymity: bool = False
+):
+    x = discord.Embed(
+        title="招待失敗",
+        color=0xFF0000,
+        description=f"{member.name}に招待を送信できませんでした",
+    )
+    if not member.bot:
+        try:
+            attachImage = ub.attachment_file("resource/image/command/invite_mail.png")
+            inviteEmbed = discord.Embed(
+                title="おさそいメール",
+                color=0xFE71E4,
+                description=f"**{interaction.channel}** に招待されています!\n`招待を受け取りたくない場合はこのbotをブロックしてください`",
+            )
+            inviteEmbed.set_author(
+                name=f"{interaction.user.name} からの招待" if not anonymity else ""
+            )
+            inviteEmbed.set_thumbnail(url=attachImage[1])
+            inviteEmbed.set_footer(
+                text=datetime.now(ZoneInfo("Asia/Tokyo")).strftime("%Y/%m/%d %H:%M:%S")
+            )
+            inviteLink = f"https://discord.com/channels/{interaction.guild.id}/{interaction.channel.id}"
+            linkButton = discord.ui.Button(
+                label="参加する", style=discord.ButtonStyle.primary, url=inviteLink
+            )
+            linkView = discord.ui.View()
+            linkView.add_item(linkButton)
+            await member.send(file=attachImage[0], embed=inviteEmbed, view=linkView)
 
-#---------------------------------------------------------------------------------------------------
-#管理者権限が必要なコマンド      
+            x = discord.Embed(
+                title="招待成功",
+                color=0x51FF2E,
+                description=f"{member.name}に招待を送信しました",
+            )
+
+        except discord.errors.Forbidden:
+            pass
+    await interaction.response.send_message(embed=x, ephemeral=anonymity)
+
+
+# ---------------------------------------------------------------------------------------------------
+# 管理者権限が必要なコマンド
 @tree.command(name="devtest", description="開発者用テストコマンド")
 @discord.app_commands.describe(channel="投稿するチャンネルID")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 @discord.app_commands.default_permissions(administrator=True)
-async def slash_devtest(interaction: discord.Interaction, channel: discord.TextChannel = None):
+async def slash_devtest(
+    interaction: discord.Interaction, channel: discord.TextChannel = None
+):
     # テストしたい処理をここに書く
-    await interaction.response.send_message(f"テストコマンドが実行されました", ephemeral=True)
+    await interaction.response.send_message(
+        f"テストコマンドが実行されました", ephemeral=True
+    )
 
 
-#使用注意!デバッグモード時のtokenを知っている管理者しか実行できない
+# 使用注意!デバッグモード時のtokenを知っている管理者しか実行できない
 @tree.command(name="devcmd", description="開発者用コンソールを呼び出す")
 @discord.app_commands.describe(key="キーワード", value="コマンド")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 @discord.app_commands.default_permissions(administrator=True)
 async def slash_devcmd(interaction: discord.Interaction, key: str, value: str):
     if not interaction.user.guild_permissions.administrator:
-        await interaction.response.send_message(f"管理者権限がありません", ephemeral=True)
+        await interaction.response.send_message(
+            f"管理者権限がありません", ephemeral=True
+        )
     elif not DEBUG_MODE:
-        await interaction.response.send_message(f"デバッグモードでのみ使用可能です", ephemeral=True)
+        await interaction.response.send_message(
+            f"デバッグモードでのみ使用可能です", ephemeral=True
+        )
     elif not key == os.environ.get("DISCORD_TOKEN"):
         await interaction.response.send_message(f"keyが違います", ephemeral=True)
     else:
         ub.output_log(f"コンソールが呼び出されました: {interaction.user.name}")
         ub.output_log(f"cmd: `{value}`")
         try:
-            #文字列にawaitが入っている場合 awaitを取り除きawait evalする
+            # 文字列にawaitが入っている場合 awaitを取り除きawait evalする
             if value.startswith("await"):
                 await eval(value.split("await ")[1])
             else:
                 eval(value)
-            await interaction.response.send_message(f"`{value}`\n実行完了", ephemeral=True)
+            await interaction.response.send_message(
+                f"`{value}`\n実行完了", ephemeral=True
+            )
         except Exception as e:
-            await interaction.response.send_message(f"`{value}`\nエラーが発生しました\n```{e}```", ephemeral=True)
- 
+            await interaction.response.send_message(
+                f"`{value}`\nエラーが発生しました\n```{e}```", ephemeral=True
+            )
+
 
 @tree.command(name="devlogin", description="ログイン投稿をテストします")
 @discord.app_commands.describe(channel="投稿するチャンネル")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 @discord.app_commands.default_permissions(administrator=True)
-async def slash_devlogin(interaction: discord.Interaction, channel: discord.TextChannel = None):
+async def slash_devlogin(
+    interaction: discord.Interaction, channel: discord.TextChannel = None
+):
     if channel:
         channelid = channel.id
     else:
         channelid = DAIRY_CHANNEL_ID
-    await daily_bonus(datetime.now(ZoneInfo("Asia/Tokyo")).replace(hour=5, minute=0),channelid)
-    await interaction.response.send_message(f"ログインジョブを実行しました", ephemeral=True)
+    await daily_bonus(
+        datetime.now(ZoneInfo("Asia/Tokyo")).replace(hour=5, minute=0), channelid
+    )
+    await interaction.response.send_message(
+        f"ログインジョブを実行しました", ephemeral=True
+    )
 
 
 @tree.command(
@@ -388,15 +434,17 @@ async def slash_devimport(interaction: discord.Interaction):
                 config_dict = json.load(file)
 
             config_dict["DEVELOP_ID_DICT"]["GUILD_IDS"] = GUILD_IDS
-            with open("config.json", "w", encoding='utf-8') as file:
+            with open("config.json", "w", encoding="utf-8") as file:
                 json.dump(config_dict, file, indent=4, ensure_ascii=False)
                 await tree.sync(guild=discord.Object(id={interaction.guild.id}))
                 await interaction.response.send_message(
                     "このサーバーにギルドコマンドを登録しました", ephemeral=True
                 )
 
-#===================================================================================================
-#イベントで発火する処理
+
+# ===================================================================================================
+# イベントで発火する処理
+
 
 # メッセージの送受信を観測したときの処理
 @client.event
@@ -747,122 +795,155 @@ async def on_button_click(interaction: discord.Interaction):
                 else:
                     break
 
-            matchCount=str(matchCount)
+            matchCount = str(matchCount)
             prize = PRIZE_DICT[matchCount]["prize"]
             value = PRIZE_DICT[matchCount]["value"]
             text = PRIZE_DICT[matchCount]["text"]
             place = PRIZE_DICT[matchCount]["place"]
 
-            pocketMoney=ub.report(interaction.user.id,"おこづかい",value)
+            pocketMoney = ub.report(interaction.user.id, "おこづかい", value)
 
             dialogText = f"\n"
 
             try:
-                #おこづかいランキングを確認し,1位になっていた場合ロールを付与する
+                # おこづかいランキングを確認し,1位になっていた場合ロールを付与する
                 df = pd.read_csv(REPORT_PATH, dtype={"ユーザーID": str})
                 user_wallet = df[["ユーザーID", "おこづかい"]]
                 user_wallet_sorted = user_wallet.sort_values(
                     by="おこづかい", ascending=False
                 ).reset_index(drop=True)
 
-                if pocketMoney==user_wallet_sorted.loc[0, "おこづかい"]:
+                if pocketMoney == user_wallet_sorted.loc[0, "おこづかい"]:
                     dialogText = f"ロロ{EXCLAMATION_ICON}{interaction.guild.name}で いちばんの おかねもち だロト{EXCLAMATION_ICON}\n"
-                    #おかねもちロール付与の処理
-                    menymoneyRole=interaction.user.guild.get_role(MENYMONEY_ROLE_ID)
+                    # おかねもちロール付与の処理
+                    menymoneyRole = interaction.user.guild.get_role(MENYMONEY_ROLE_ID)
                     if menymoneyRole not in interaction.user.roles:
-                        ub.output_log(f"おこづかい一位が変わりました: {interaction.user.name}")
+                        ub.output_log(
+                            f"おこづかい一位が変わりました: {interaction.user.name}"
+                        )
                         await interaction.user.add_roles(menymoneyRole)
-                        ub.output_log(f"ロールを付与しました: {interaction.user.name}に{menymoneyRole.name}")
+                        ub.output_log(
+                            f"ロールを付与しました: {interaction.user.name}に{menymoneyRole.name}"
+                        )
 
-                    #2位以下のおかねもちロールを剥奪する処理
+                    # 2位以下のおかねもちロールを剥奪する処理
                     for i in range(0, len(user_wallet_sorted)):
-                        lowerUser=interaction.guild.get_member(int(user_wallet_sorted.loc[i, "ユーザーID"]))
-                        #インタラクションユーザーには実施しない
+                        lowerUser = interaction.guild.get_member(
+                            int(user_wallet_sorted.loc[i, "ユーザーID"])
+                        )
+                        # インタラクションユーザーには実施しない
                         if lowerUser and not interaction.user == lowerUser:
                             if pocketMoney > user_wallet_sorted.loc[i, "おこづかい"]:
                                 if menymoneyRole in lowerUser.roles:
                                     await lowerUser.remove_roles(menymoneyRole)
-                                    ub.output_log(f"ロールを剥奪しました: {lowerUser.name}から{menymoneyRole.name}")
+                                    ub.output_log(
+                                        f"ロールを剥奪しました: {lowerUser.name}から{menymoneyRole.name}"
+                                    )
                                 else:
                                     break
 
             except Exception as e:
                 ub.output_log(f"おこづかいランキングの処理でエラーが発生しました\n{e}")
-                
+
             attachImage = ub.attachment_file(f"resource/image/prize/{prize}.png")
             lotoEmbed = discord.Embed(
                 title=text,
                 color=0xFF99C2,
-                description=f"{place}の 商品 **{prize}**をプレゼントだロ{BANGBANG_ICON}\n"\
-                    f"{dialogText}"\
-                    f"それじゃあ またの 挑戦を お待ちしてるロ~~{EXCLAMATION_ICON}",
+                description=f"{place}の 商品 **{prize}**をプレゼントだロ{BANGBANG_ICON}\n"
+                f"{dialogText}"
+                f"それじゃあ またの 挑戦を お待ちしてるロ~~{EXCLAMATION_ICON}",
             )
             lotoEmbed.set_thumbnail(url=attachImage[1])
             lotoEmbed.add_field(
                 name=f"{interaction.user.name}は {prize}を 手に入れた!",
-                value=f'売却価格: {value}えん\nおこづかい: {pocketMoney}えん',
+                value=f"売却価格: {value}えん\nおこづかい: {pocketMoney}えん",
                 inline=False,
             )
             lotoEmbed.set_author(name=f"あなたのID: {userId}")
             lotoEmbed.set_footer(text="No.15 IDくじ")
 
             ub.report(interaction.user.id, "クジびきけん", -1)  # クジの回数を減らす
-            await interaction.response.send_message(file=attachImage[0],embed=lotoEmbed, ephemeral=True)
-            
-            
-#ボイスチャンネルへの参加・退出を検知
+            await interaction.response.send_message(
+                file=attachImage[0], embed=lotoEmbed, ephemeral=True
+            )
+
+
+# ボイスチャンネルへの参加・退出を検知
 @client.event
 async def on_voice_state_update(member, before, after):
-  time = datetime.now(ZoneInfo("Asia/Tokyo"))
-    
-  if os.path.exists(CALLDATA_PATH):
-    call_df = pd.read_csv(CALLDATA_PATH, dtype={"累計参加メンバー": str}).set_index("チャンネルID")
-  else:
-    call_df = pd.DataFrame(columns=["チャンネルID", "メッセージID", "通話開始", "タイトル", "名前読み上げ", "累計参加メンバー"]).set_index("チャンネルID")
-        
-  if after.channel:
-    if member.bot:
-      return
-    #ボイスチャンネルにメンバーが入室
-    callch=after.channel
-    if after.channel.type == discord.ChannelType.voice:
-      ub.output_log(f'ボイスチャンネル参加\n {callch.name}: {member.name}')
-      if len(after.channel.members) == 1: #入室時ひとりなら
-        if before.channel and len(before.channel.members) == 1:
-          return
-        await asyncio.sleep(5) #5秒後に通話開始処理
-        if len(callch.members)>0:
-          member=callch.members[0]
-          await CallPost(callch).start(member,time)
-          
-          if not member.voice or not member.voice.channel == callch: #参加したメンバーがいなくなっていたら
-            ub.output_log("参加したメンバーが退出しています")
-            return
-        else:
-          ub.output_log(f'通話は開始されませんでした\n {callch.name}: {member.name}')
-          return
-      else:
-        if not callch.id in call_df.index:
-          await asyncio.sleep(5)
-          call_df = pd.read_csv(CALLDATA_PATH, dtype={"累計参加メンバー": str}).set_index("チャンネルID") #更新する
-          
-        if callch.id in call_df.index and str(member.id) not in call_df.loc[callch.id, "累計参加メンバー"].split(' '):
-          call_df.loc[callch.id, "累計参加メンバー"] += f' {member.id}'
-          call_df.to_csv(CALLDATA_PATH)
+    time = datetime.now(ZoneInfo("Asia/Tokyo"))
 
-      kinouoff="""
+    if os.path.exists(CALLDATA_PATH):
+        call_df = pd.read_csv(CALLDATA_PATH, dtype={"累計参加メンバー": str}).set_index(
+            "チャンネルID"
+        )
+    else:
+        call_df = pd.DataFrame(
+            columns=[
+                "チャンネルID",
+                "メッセージID",
+                "通話開始",
+                "タイトル",
+                "名前読み上げ",
+                "累計参加メンバー",
+            ]
+        ).set_index("チャンネルID")
+
+    if after.channel:
+        if member.bot:
+            return
+        # ボイスチャンネルにメンバーが入室
+        callch = after.channel
+        if after.channel.type == discord.ChannelType.voice:
+            ub.output_log(f"ボイスチャンネル参加\n {callch.name}: {member.name}")
+            if len(after.channel.members) == 1:  # 入室時ひとりなら
+                if before.channel and len(before.channel.members) == 1:
+                    return
+                await asyncio.sleep(5)  # 5秒後に通話開始処理
+                if len(callch.members) > 0:
+                    member = callch.members[0]
+                    await CallPost(callch).start(member, time)
+
+                    if (
+                        not member.voice or not member.voice.channel == callch
+                    ):  # 参加したメンバーがいなくなっていたら
+                        ub.output_log("参加したメンバーが退出しています")
+                        return
+                else:
+                    ub.output_log(
+                        f"通話は開始されませんでした\n {callch.name}: {member.name}"
+                    )
+                    return
+            else:
+                if not callch.id in call_df.index:
+                    await asyncio.sleep(5)
+                    call_df = pd.read_csv(
+                        CALLDATA_PATH, dtype={"累計参加メンバー": str}
+                    ).set_index(
+                        "チャンネルID"
+                    )  # 更新する
+
+                if callch.id in call_df.index and str(member.id) not in call_df.loc[
+                    callch.id, "累計参加メンバー"
+                ].split(" "):
+                    call_df.loc[callch.id, "累計参加メンバー"] += f" {member.id}"
+                    call_df.to_csv(CALLDATA_PATH)
+
+            kinouoff = """
       if callch.id in call_df.index and call_df.loc[callch.id, '名前読み上げ']:
           joinMemberMessage=f"{member.name}さんが参加"
       await callch.send(joinMemberMessage,embed=discord.Embed(title=f"{member.name}さんが 参加しました",color=0xff8e8e).set_footer(text=time.strftime("%Y/%m/%d %H:%M:%S")))
       ub.output_log(f"ボイスチャンネル参加\n {callch.name}: {member.name}")
       """
-  
-  if before.channel:
-    #ボイスチャンネルからメンバーが退室
-    if before.channel.type == discord.ChannelType.voice:
-      ub.output_log(f'ボイスチャンネル退出\n {before.channel.name}: {member.name}')
 
-      kinouoff="""
+    if before.channel:
+        # ボイスチャンネルからメンバーが退室
+        if before.channel.type == discord.ChannelType.voice:
+            ub.output_log(
+                f"ボイスチャンネル退出\n {before.channel.name}: {member.name}"
+            )
+
+            kinouoff = """
       if before.channel.id in call_df.index:
         quitMemberMessage=""
         if call_df.loc[before.channel.id,'名前読み上げ']:
@@ -870,12 +951,15 @@ async def on_voice_state_update(member, before, after):
         await before.channel.send(quitMemberMessage,embed=discord.Embed(title=f"{member.name}さんが 退出しました",color=0x8e8eff).set_footer(text=time.strftime("%Y/%m/%d %H:%M:%S")))
       else:
         await before.channel.send(embed=discord.Embed(title=f"{member.name}さんが 退出しました",color=0x8e8eff).set_footer(text=time.strftime("%Y/%m/%d %H:%M:%S")))
-      """  
-      if len(before.channel.members) == 0: #ボイスチャンネルに人がいなくなったら
-        await CallPost(before.channel).stop(time)
-#===================================================================================================
-#オブジェクト
-            
+      """
+            if len(before.channel.members) == 0:  # ボイスチャンネルに人がいなくなったら
+                await CallPost(before.channel).stop(time)
+
+
+# ===================================================================================================
+# オブジェクト
+
+
 class quiz:
     def __init__(self, quizName):
         self.quizName = quizName
@@ -1405,146 +1489,221 @@ class quiz:
         log_df.to_csv(logPath, mode="w", header=True, index=False)
 
 
-class CallPost: #await CallPost(*,discord.channel,channelID).start(member,time) /.stop(member,time) /.title(title)
-  def __init__(self,channel,sendChannelId: int = None):
-    self.channel = channel
-    if sendChannelId is None:
-      if self.channel.permissions_for(channel.guild.default_role).view_channel: #プライベートなら送信先を変更:
-        sendChannelId = CALLSTATUS_CHANNEL_ID
-      else:
-        sendChannelId = DEBUG_CHANNEL_ID
-    self.sendChannel = client.get_channel(sendChannelId)
-    self.message = None
+class CallPost:  # await CallPost(*,discord.channel,channelID).start(member,time) /.stop(member,time) /.title(title)
+    def __init__(self, channel, sendChannelId: int = None):
+        self.channel = channel
+        if sendChannelId is None:
+            if self.channel.permissions_for(
+                channel.guild.default_role
+            ).view_channel:  # プライベートなら送信先を変更:
+                sendChannelId = CALLSTATUS_CHANNEL_ID
+            else:
+                sendChannelId = DEBUG_CHANNEL_ID
+        self.sendChannel = client.get_channel(sendChannelId)
+        self.message = None
 
-    if self.channel.type == discord.ChannelType.stage_voice:
-      self.chType="放送"
-    else:
-      self.chType="通話"
-    
-    if os.path.exists(CALLDATA_PATH):
-      self.call_df = pd.read_csv(CALLDATA_PATH, dtype={"累計参加メンバー": str}).set_index("チャンネルID")
-    else:
-      self.call_df = pd.DataFrame(columns=["チャンネルID", "メッセージID", "通話開始", "タイトル", "名前読み上げ", "累計参加メンバー"]).set_index("チャンネルID")
-            
-  async def start(self,member,time: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))):
-    defaultTitle = "設定無し"
-    if self.chType == "放送":
-      embedColor = 0xa7ff8f
-    else:
-      embedColor = 0xff8e8e
-    
-    attachedImage = ub.attachment_file("resource/image/command/start_call.gif")
-    startEmbed = discord.Embed(title=f'{self.chType}開始', color=embedColor)
-    startEmbed.set_author(name=f'{member.name} さん', icon_url=member.display_avatar.url)
-    startEmbed.set_thumbnail(url=attachedImage[1])
-    startEmbed.add_field(name="タイトル", value=f'`{defaultTitle}`', inline=False)
-    startEmbed.add_field(name="チャンネル", value=self.channel.mention, inline=False)
-    startEmbed.add_field(name=f'{self.chType}開始', value=f'```{time.strftime("%Y/%m/%d")}\n{time.strftime("%H:%M:%S")}```', inline=True)
-    
-    startMessage = await self.sendChannel.send(file=attachedImage[0],embed=startEmbed)
+        if self.channel.type == discord.ChannelType.stage_voice:
+            self.chType = "放送"
+        else:
+            self.chType = "通話"
 
-    newBusyData = pd.DataFrame({
-      "メッセージID": [startMessage.id],
-      "通話開始":[time.strftime("%Y/%m/%d %H:%M:%S")],
-      "タイトル": [defaultTitle],
-      "名前読み上げ": [False],
-      "累計参加メンバー": [member.id]
-    }, index=[self.channel.id]).iloc[0]
-    
-    if self.channel.id not in self.call_df.index:
-      self.call_df = self.call_df.append(newBusyData)
-    else:
-      self.call_df.loc[self.channel.id] = newBusyData
-    self.call_df.to_csv(CALLDATA_PATH)
+        if os.path.exists(CALLDATA_PATH):
+            self.call_df = pd.read_csv(
+                CALLDATA_PATH, dtype={"累計参加メンバー": str}
+            ).set_index("チャンネルID")
+        else:
+            self.call_df = pd.DataFrame(
+                columns=[
+                    "チャンネルID",
+                    "メッセージID",
+                    "通話開始",
+                    "タイトル",
+                    "名前読み上げ",
+                    "累計参加メンバー",
+                ]
+            ).set_index("チャンネルID")
 
-    await self.channel.send(file=attachedImage[0],embed=discord.Embed(title="通話開始", description="`/title` 通話目的を変更できます\n`/invite` メンバーを招待できます",color=embedColor).set_footer(text=time.strftime("%Y/%m/%d %H:%M:%S")))
-    ub.output_log(f'{self.chType}が開始されました\n {self.channel.name}: {member.name}')
+    async def start(
+        self, member, time: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))
+    ):
+        defaultTitle = "設定無し"
+        if self.chType == "放送":
+            embedColor = 0xA7FF8F
+        else:
+            embedColor = 0xFF8E8E
 
-  async def title(self,newTitle:str):
-    if not await self.__load():
-      return False
-      
-    self.message.embeds[0].set_field_at(0, name='タイトル', value=f'`{newTitle}`')
+        attachedImage = ub.attachment_file("resource/image/command/start_call.gif")
+        startEmbed = discord.Embed(title=f"{self.chType}開始", color=embedColor)
+        startEmbed.set_author(
+            name=f"{member.name} さん", icon_url=member.display_avatar.url
+        )
+        startEmbed.set_thumbnail(url=attachedImage[1])
+        startEmbed.add_field(name="タイトル", value=f"`{defaultTitle}`", inline=False)
+        startEmbed.add_field(
+            name="チャンネル", value=self.channel.mention, inline=False
+        )
+        startEmbed.add_field(
+            name=f"{self.chType}開始",
+            value=f'```{time.strftime("%Y/%m/%d")}\n{time.strftime("%H:%M:%S")}```',
+            inline=True,
+        )
 
-    oldTitle = self.call_df.loc[self.channel.id, 'タイトル']
-    self.call_df.loc[self.channel.id, 'タイトル'] = newTitle
-    self.call_df.to_csv(CALLDATA_PATH)
-  
-    await self.message.edit(embed=self.message.embeds[0],attachments=self.message.attachments)
-    ub.output_log(f'通話タイトルを更新しました\n{self.channel.name}: [{oldTitle} > {newTitle}]')
-    return True
+        startMessage = await self.sendChannel.send(
+            file=attachedImage[0], embed=startEmbed
+        )
 
-  async def stop(self,time: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))):
-    if not await self.__load():
-      return False
-    if self.chType=="放送":
-      embedColor=0x8ffff8
-    else:
-      embedColor=0x8e8eff
-      
-    diff = (time.replace(tzinfo=None)-pd.to_datetime(self.call_df.loc[self.channel.id,"通話開始"], format='%Y/%m/%d %H:%M:%S')).total_seconds()
-    hours = int(diff // 3600)
-    minutes = int((diff % 3600) // 60)
-    seconds = int(diff % 60)
-    attachImage = ub.attachment_file("resource/image/command/stop_call.gif")
+        newBusyData = pd.DataFrame(
+            {
+                "メッセージID": [startMessage.id],
+                "通話開始": [time.strftime("%Y/%m/%d %H:%M:%S")],
+                "タイトル": [defaultTitle],
+                "名前読み上げ": [False],
+                "累計参加メンバー": [member.id],
+            },
+            index=[self.channel.id],
+        ).iloc[0]
 
-    stopEmbed=self.message.embeds[0]
-    stopEmbed.title = f'{self.chType}終了・{f"{hours}時間 " if hours>0 else " "}{minutes}分'
-    stopEmbed.color = embedColor
-    stopEmbed.set_thumbnail(url=attachImage[1])
-    stopEmbed.set_footer(text=f'Total Visitors: {len(self.call_df.loc[self.channel.id,"累計参加メンバー"].split(" "))}')
-    stopEmbed.add_field(name=f'{self.chType}終了', value=f'```{time.strftime("%Y/%m/%d")}\n{time.strftime("%H:%M:%S")}```', inline=True)
-    
-    await self.message.edit(embed=stopEmbed,attachments=[attachImage[0]])
+        if self.channel.id not in self.call_df.index:
+            # appendは使用しない AttributeError: 'DataFrame' object has no attribute 'append'
+            # self.call_df = self.call_df.append(newBusyData)
+            self.call_df = pd.concat(
+                [self.call_df, pd.DataFrame(newBusyData).T], ignore_index=False
+            )
 
-    self.call_df.drop(self.channel.id).to_csv(CALLDATA_PATH, index=True)
+        else:
+            self.call_df.loc[self.channel.id] = newBusyData
+        self.call_df.to_csv(CALLDATA_PATH)
 
-    visitor_ids = self.call_df.loc[self.channel.id, "累計参加メンバー"].split(' ')
-    visitor_names = []
-    for visitor_id in visitor_ids:
-      visitor = await client.fetch_user(visitor_id)
-      visitor_names.append(visitor.name)
-    visitors = ' '.join(visitor_names)
-    
-    if os.path.exists(CALLLOG_PATH):
-      log_df = pd.read_csv(CALLLOG_PATH)
-    else:  
-      log_df = pd.DataFrame(columns=['通話開始','通話終了','通話時間','タイトル','チャンネル','参加メンバー'])
-      
-    newLog = pd.DataFrame({
-      '通話開始': self.call_df.loc[self.channel.id, '通話開始'],
-      '通話終了': time.strftime("%Y/%m/%d %H:%M:%S"),
-      '通話時間': f'{hours:02}:{minutes:02}:{seconds:02}' ,
-      'タイトル': self.call_df.loc[self.channel.id,'タイトル'],
-      'チャンネル': self.channel.name,'参加メンバー': visitors
-    }, index=[0])
-    #log_df = pd.concat([log_df.iloc[:1], newLog, log_df.iloc[1:]], ignore_index=True)
-    log_df = pd.concat([newLog, log_df], ignore_index=True)
-    log_df.to_csv(CALLLOG_PATH, mode='w', header=True, index=False)
-    
-    embed=discord.Embed(
-      title=f'{self.chType}終了',
-      color=embedColor
-    )
-    embed.set_footer(text=time.strftime("%Y/%m/%d %H:%M:%S"))
-    
-    await self.channel.send(embed=embed)
-    ub.output_log(f'{self.chType}が終了しました\n {self.channel.name}: {visitor_names[-1]}')
-    return True
-      
-  async def __load(self):
-    if self.channel.id in self.call_df.index:
-      try:
-        self.message = await self.sendChannel.fetch_message(self.call_df.loc[self.channel.id, 'メッセージID'])
-      except discord.NotFound:
-        ub.output_log("ERROR: 指定のメッセージが見つかりませんでした")
-        return False
-    else:
-      ub.output_log("ERROR: 指定チャンネルの通話記録がありません")
-      return False
-    return True
-  
-#===================================================================================================
+        await self.channel.send(
+            file=attachedImage[0],
+            embed=discord.Embed(
+                title="通話開始",
+                description="`/title` 通話目的を変更できます\n`/invite` メンバーを招待できます",
+                color=embedColor,
+            ).set_footer(text=time.strftime("%Y/%m/%d %H:%M:%S")),
+        )
+        ub.output_log(
+            f"{self.chType}が開始されました\n {self.channel.name}: {member.name}"
+        )
+
+    async def title(self, newTitle: str):
+        if not await self.__load():
+            return False
+
+        self.message.embeds[0].set_field_at(0, name="タイトル", value=f"`{newTitle}`")
+
+        oldTitle = self.call_df.loc[self.channel.id, "タイトル"]
+        self.call_df.loc[self.channel.id, "タイトル"] = newTitle
+        self.call_df.to_csv(CALLDATA_PATH)
+
+        await self.message.edit(
+            embed=self.message.embeds[0], attachments=self.message.attachments
+        )
+        ub.output_log(
+            f"通話タイトルを更新しました\n{self.channel.name}: [{oldTitle} > {newTitle}]"
+        )
+        return True
+
+    async def stop(self, time: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))):
+        if not await self.__load():
+            return False
+        if self.chType == "放送":
+            embedColor = 0x8FFFF8
+        else:
+            embedColor = 0x8E8EFF
+
+        diff = (
+            time.replace(tzinfo=None)
+            - pd.to_datetime(
+                self.call_df.loc[self.channel.id, "通話開始"],
+                format="%Y/%m/%d %H:%M:%S",
+            )
+        ).total_seconds()
+        hours = int(diff // 3600)
+        minutes = int((diff % 3600) // 60)
+        seconds = int(diff % 60)
+        attachImage = ub.attachment_file("resource/image/command/stop_call.gif")
+
+        stopEmbed = self.message.embeds[0]
+        stopEmbed.title = (
+            f'{self.chType}終了・{f"{hours}時間 " if hours>0 else " "}{minutes}分'
+        )
+        stopEmbed.color = embedColor
+        stopEmbed.set_thumbnail(url=attachImage[1])
+        stopEmbed.set_footer(
+            text=f'Total Visitors: {len(self.call_df.loc[self.channel.id,"累計参加メンバー"].split(" "))}'
+        )
+        stopEmbed.add_field(
+            name=f"{self.chType}終了",
+            value=f'```{time.strftime("%Y/%m/%d")}\n{time.strftime("%H:%M:%S")}```',
+            inline=True,
+        )
+
+        await self.message.edit(embed=stopEmbed, attachments=[attachImage[0]])
+
+        self.call_df.drop(self.channel.id).to_csv(CALLDATA_PATH, index=True)
+
+        visitor_ids = self.call_df.loc[self.channel.id, "累計参加メンバー"].split(" ")
+        visitor_names = []
+        for visitor_id in visitor_ids:
+            visitor = await client.fetch_user(visitor_id)
+            visitor_names.append(visitor.name)
+        visitors = " ".join(visitor_names)
+
+        if os.path.exists(CALLLOG_PATH):
+            log_df = pd.read_csv(CALLLOG_PATH)
+        else:
+            log_df = pd.DataFrame(
+                columns=[
+                    "通話開始",
+                    "通話終了",
+                    "通話時間",
+                    "タイトル",
+                    "チャンネル",
+                    "参加メンバー",
+                ]
+            )
+
+        newLog = pd.DataFrame(
+            {
+                "通話開始": self.call_df.loc[self.channel.id, "通話開始"],
+                "通話終了": time.strftime("%Y/%m/%d %H:%M:%S"),
+                "通話時間": f"{hours:02}:{minutes:02}:{seconds:02}",
+                "タイトル": self.call_df.loc[self.channel.id, "タイトル"],
+                "チャンネル": self.channel.name,
+                "参加メンバー": visitors,
+            },
+            index=[0],
+        )
+        # log_df = pd.concat([log_df.iloc[:1], newLog, log_df.iloc[1:]], ignore_index=True)
+        log_df = pd.concat([newLog, log_df], ignore_index=True)
+        log_df.to_csv(CALLLOG_PATH, mode="w", header=True, index=False)
+
+        embed = discord.Embed(title=f"{self.chType}終了", color=embedColor)
+        embed.set_footer(text=time.strftime("%Y/%m/%d %H:%M:%S"))
+
+        await self.channel.send(embed=embed)
+        ub.output_log(
+            f"{self.chType}が終了しました\n {self.channel.name}: {visitor_names[-1]}"
+        )
+        return True
+
+    async def __load(self):
+        if self.channel.id in self.call_df.index:
+            try:
+                self.message = await self.sendChannel.fetch_message(
+                    self.call_df.loc[self.channel.id, "メッセージID"]
+                )
+            except discord.NotFound:
+                ub.output_log("ERROR: 指定のメッセージが見つかりませんでした")
+                return False
+        else:
+            ub.output_log("ERROR: 指定チャンネルの通話記録がありません")
+            return False
+        return True
+
+
+# ===================================================================================================
 # トークンの取得とBOTの起動
 
 load_dotenv()
