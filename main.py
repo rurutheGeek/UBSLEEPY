@@ -4,7 +4,6 @@
 
 # 標準ライブラリ
 import os
-import sys
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import random
@@ -59,9 +58,27 @@ async def on_ready():
 
     BQ_FILTERED_DF = ub.filter_dataframe(BQ_FILTER_DICT).fillna("なし")
 
-    ub.output_log("botが起動しました")
+    # 定期処理の開始
     if not post_logs.is_running():
         post_logs.start()
+    if not daily_bonus.is_running():
+        daily_bonus.start()
+
+    #時報の投稿済みチェック (5時以降の起動で)
+    now = datetime.now(ZoneInfo("Asia/Tokyo"))
+    if(now.hour >= 5):
+        dairyChannel = client.get_channel(DAIRY_CHANNEL_ID)
+        timeSignal=False
+        async for message in dairyChannel.history(limit=3):
+            if message.author == client.user and now.strftime("%Y/%m/%d") in message.content:
+                timeSignal=True
+                break
+        
+        if not timeSignal:
+            ub.output_log('本日の時報が未投稿のようです.時報の投稿を試みます')
+            await daily_bonus(now.replace(hour=5, minute=0, second=0, microsecond=0))
+        
+        ub.output_log("botが起動しました")
 
 #===================================================================================================
 #定期的に実行する処理
@@ -241,7 +258,7 @@ async def slash_pocketmoney(interaction: discord.Interaction):
     ranking_list = top_users.values.tolist()
 
     pdwGuild = await client.fetch_guild(PDW_SERVER_ID, with_counts=True)
-    author = ub.attachment_file("resource/image/mom_johto.png")
+    attachImage = ub.attachment_file("resource/image/mom_johto.png")
     embed = ub_embed.balance(
         userName=interaction.user.name,
         pocketMoney=money,
@@ -249,11 +266,10 @@ async def slash_pocketmoney(interaction: discord.Interaction):
         userRank=userRank,
         rank_list=ranking_list,
         sendTime=datetime.now(ZoneInfo("Asia/Tokyo")),
-        authorPath=author[1],
+        authorPath=attachImage[1],
     )
 
-    await interaction.response.send_message(file=author[0], embed=embed, ephemeral=True)
-
+    await interaction.response.send_message(file=attachImage[0], embed=embed, ephemeral=True)
 
 #---------------------------------------------------------------------------------------------------
 #管理者権限が必要なコマンド      
@@ -721,7 +737,8 @@ async def on_button_click(interaction: discord.Interaction):
 
             except Exception as e:
                 ub.output_log(f"おこづかいランキングの処理でエラーが発生しました\n{e}")
-
+                
+            attachImage = ub.attachment_file(f"resource/image/prize/{prize}.png")
             lotoEmbed = discord.Embed(
                 title=text,
                 color=0xFF99C2,
@@ -729,7 +746,7 @@ async def on_button_click(interaction: discord.Interaction):
                     f"{dialogText}"\
                     f"それじゃあ またの 挑戦を お待ちしてるロ~~{EXCLAMATION_ICON}",
             )
-            lotoEmbed.set_thumbnail(url=f"{EX_SOURCE_LINK}icon/{prize}.png")
+            lotoEmbed.set_thumbnail(url=attachImage[1])
             lotoEmbed.add_field(
                 name=f"{interaction.user.name}は {prize}を 手に入れた!",
                 value=f'売却価格: {value}えん\nおこづかい: {pocketMoney}えん',
@@ -739,7 +756,7 @@ async def on_button_click(interaction: discord.Interaction):
             lotoEmbed.set_footer(text="No.15 IDくじ")
 
             ub.report(interaction.user.id, "クジびきけん", -1)  # クジの回数を減らす
-            await interaction.response.send_message(embed=lotoEmbed, ephemeral=True)
+            await interaction.response.send_message(file=attachImage[0],embed=lotoEmbed, ephemeral=True)
             
             
 #===================================================================================================
