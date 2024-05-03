@@ -294,13 +294,12 @@ def attachment_file(file_path: str) -> discord.File:
   attachment_path : str
   添付ファイルのパス
   '''
-  filename = os.path.basename(file_path)
+  filename = "attachedImage.png"
   if not os.path.exists(file_path):
       file_path = NOTFOUND_IMAGE_PATH
-      filename = os.path.basename(file_path)
   file = discord.File(file_path, filename=filename)
   attachment_path=f"attachment://{filename}"
-  output_log(f"添付ファイルのパスを生成しました: {attachment_path}")
+  output_log(f"次のファイルを添付します: {file_path}")
   return file,attachment_path
 
 def show_calendar(day: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))) -> discord.Embed:
