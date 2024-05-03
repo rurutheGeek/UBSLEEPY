@@ -294,7 +294,7 @@ def attachment_file(file_path: str) -> discord.File:
   attachment_path : str
   添付ファイルのパス
   '''
-  filename = "attachedImage.png"
+  filename = f"attachedImage{os.path.splitext(file_path)[1]}"
   if not os.path.exists(file_path):
       file_path = NOTFOUND_IMAGE_PATH
   file = discord.File(file_path, filename=filename)
