@@ -258,7 +258,7 @@ async def slash_pocketmoney(interaction: discord.Interaction):
     ranking_list = top_users.values.tolist()
 
     pdwGuild = await client.fetch_guild(PDW_SERVER_ID, with_counts=True)
-    attachImage = ub.attachment_file("resource/image/mom_johto.png")
+    attachImage = ub.attachment_file("resource/image/command/mom_johto.png")
     embed = ub_embed.balance(
         userName=interaction.user.name,
         pocketMoney=money,
