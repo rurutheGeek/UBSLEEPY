@@ -455,23 +455,6 @@ async def on_message(message):
     if message.author.bot:  # メッセージ送信者がBotだった場合は無視する
         return
 
-    # senpaiがオンラインである時
-    senpai_id = 1076387439410675773
-    senpai = message.guild.get_member(senpai_id)
-    if senpai and senpai.status == discord.Status.online:
-        await client.change_presence(
-            activity=discord.Activity(
-                name="研修チュウ", type=discord.ActivityType.playing
-            )
-        )
-        return
-    else:
-        await client.change_presence(
-            activity=discord.Activity(
-                name="種族値クイズ", type=discord.ActivityType.competing
-            )
-        )
-
     if message.content.startswith("/bqdata"):
         bqFilterWords = message.content.split()[1:]
 
@@ -535,6 +518,31 @@ async def on_message(message):
 
         ub.output_log("出題条件を表示します")
         await message.channel.send(response, embed=bqFilteredEmbed)
+
+    #チャンネルのidがQUIZ_CHANNEL_IDの場合
+    elif message.channel.id == QUIZ_CHANNEL_ID:
+        #メッセージの内容がポケモン名であるか判定
+        if ub.fetch_pokemon(message.content) is not None:
+            #一番新しいクイズの投稿を探し,未回答の場合は
+            async for quizMessage in message.channel.history(limit=10):
+                if quizMessage.embeds:
+                    embedFooterText = quizMessage.embeds[0].footer.text
+                    if (
+                    "No.26 ポケモンクイズ - bq" in embedFooterText
+                    and not "(done)" in embedFooterText
+                    ):
+                        #メッセージをリプライに偽装する quizクラスの内容を修正すべき
+                        message.reference=discord.MessageReference(
+                            message_id=quizMessage.id,
+                            channel_id=quizMessage.channel.id,
+                            guild_id=quizMessage.guild.id,
+                            #resolved=message
+                        )
+                        message.reference.resolved = quizMessage
+                        await quiz(embedFooterText.split()[3]).try_response(message)
+                        break
+            if not quizMessage.embeds:
+                ub.output_log("ポケモン名が投稿されましたがクイズ投稿が見つかりませんでした")
 
     # リプライ(reference)に反応
     elif message.reference is not None:
@@ -1081,7 +1089,6 @@ class quiz:
             self.qm = response.reference.resolved
             self.ansText = ub.format_text(response.content)
             self.opener = self.rm.author
-
         elif isinstance(response, discord.Interaction):
             self.rm = response
             self.qm = response.message
