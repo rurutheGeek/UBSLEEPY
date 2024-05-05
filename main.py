@@ -31,10 +31,6 @@ import bot_module.embed as ub_embed
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # クライアントを作成
-client = discord.Client(
-    intents=discord.Intents.all(),
-    activity=discord.Activity(name="研修チュウ", type=discord.ActivityType.unknown),
-)
 tree = discord.app_commands.CommandTree(client)
 
 # ===================================================================================================
@@ -519,6 +515,31 @@ async def on_message(message):
         ub.output_log("出題条件を表示します")
         await message.channel.send(response, embed=bqFilteredEmbed)
 
+    # リプライ(reference)に反応
+    elif message.reference is not None:
+        # リプライ先メッセージのキャッシュを取得
+        message.reference.resolved = await message.channel.fetch_message(
+            message.reference.message_id
+        )
+
+        # bot自身へのリプライに反応
+        """if (
+            message.reference.resolved.author == client.user
+            and message.reference.resolved.embeds
+        ):"""
+        if message.reference.resolved.embeds:
+            embedFooterText = message.reference.resolved.embeds[0].footer.text
+            # リプライ先にembedが含まれるかつ未回答のクイズの投稿か
+            if (
+                "No.26 ポケモンクイズ" in embedFooterText
+                and not "(done)" in embedFooterText
+            ):
+                await quiz(embedFooterText.split()[3]).try_response(message)
+
+            else:
+                ub.output_log("botへのリプライは無視されました")
+
+
     #チャンネルのidがQUIZ_CHANNEL_IDの場合
     elif message.channel.id == QUIZ_CHANNEL_ID:
         #メッセージの内容がポケモン名であるか判定
@@ -543,30 +564,6 @@ async def on_message(message):
                         break
             if not quizMessage.embeds:
                 ub.output_log("ポケモン名が投稿されましたがクイズ投稿が見つかりませんでした")
-
-    # リプライ(reference)に反応
-    elif message.reference is not None:
-        # リプライ先メッセージのキャッシュを取得
-        message.reference.resolved = await message.channel.fetch_message(
-            message.reference.message_id
-        )
-
-        # bot自身へのリプライに反応
-        """if (
-            message.reference.resolved.author == client.user
-            and message.reference.resolved.embeds
-        ):"""
-        if message.reference.resolved.embeds:
-            embedFooterText = message.reference.resolved.embeds[0].footer.text
-            # リプライ先にembedが含まれるかつ未回答のクイズの投稿か
-            if (
-                "No.26 ポケモンクイズ" in embedFooterText
-                and not "(done)" in embedFooterText
-            ):
-                await quiz(embedFooterText.split()[3]).try_response(message)
-
-            else:
-                ub.output_log("botへのリプライは無視されました")
 
 
 # 新規メンバーが参加したときの処理
