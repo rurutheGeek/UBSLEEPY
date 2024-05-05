@@ -31,10 +31,6 @@ import bot_module.embed as ub_embed
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # クライアントを作成
-client = discord.Client(
-    intents=discord.Intents.all(),
-    activity=discord.Activity(name="研修チュウ", type=discord.ActivityType.unknown),
-)
 tree = discord.app_commands.CommandTree(client)
 
 # ===================================================================================================
