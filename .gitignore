@@ -7,7 +7,7 @@
 /resource/sound
 
 #bot上で変更されるファイルは同期しない(まとめるべきかも)
-/resource
+/resource/pokemon_senryu.csv
 /save
 /log
 
