@@ -12,6 +12,7 @@
 /log
 #レポートは同期しない
 /save/report.csv
+/save/studentid.csv
 
 #リポジトリに共有したくないファイルはtempフォルダに配置してください
 /temp
