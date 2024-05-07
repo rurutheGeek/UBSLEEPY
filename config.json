@@ -44,19 +44,19 @@
         "EXCLAMATION_ICON": "<:unown_exclamation:1095570767984480489>"
     },
     "PATH_DICT": {
+        "POKEDEX_PATH": "resource/pokemon_database.csv",
+        "NOTFOUND_IMAGE_PATH": "resource/image/decamark.png",
+        "POKECALENDAR_PATH": "resource/pokemon_calendar.csv",
+        "POKESENRYU_PATH": "resource/pokemon_senryu.csv",
+        "MEMBERDATA_PATH": "save/pogakuin_list.csv",
         "REPORT_PATH": "save/report.csv",
         "BSS_GRAPH_PATH": "save/graph.png",
-        "NOTFOUND_IMAGE_PATH": "resource/image/decamark.png",
-        "POKEDEX_PATH": "resource/pokedata_breloom.csv",
-        "POKECALENDAR_PATH": "resource/pokecalendar_breloom.csv",
-        "POKESENRYU_PATH": "resource/pokesenryu_breloom.csv",
-        "FEEDBACK_PATH": "save/feedback.csv",
         "MEMORY_PATH": "save/restmemorychannel.csv",
-        "CALLDATA_PATH": "save/busychannel.csv",
-        "MEMBERDATA_PATH": "resource/member_breloom.csv",
-        "MEMBERLIST_PATH": "save/studentid.csv",
-        "CALLLOG_PATH": "log/calllog.csv",
-        "SYSTEMLOG_PATH": "log/system_log.txt"
+        "CALLDATA_PATH": "save/call_cache.csv",
+        "SYSTEMLOG_PATH": "save/output_cache.txt",
+        "FEEDBACK_PATH": "log/feedbacks_log.csv",
+        "MEMBERLIST_PATH": "log/auth_log.csv",
+        "CALLLOG_PATH": "log/call_log.csv"
     },
     "LINK_DICT": {
         "EX_SOURCE_LINK": "https://pokecries.nobody.jp/content/resources/"

@@ -5,14 +5,12 @@
 #リソースファイルを共有しない
 /resource/image
 /resource/sound
-#メンバーの個人情報は共有しない
-/resource/member_breloom.csv
 
-#ログファイルは競合するので共有しない
+#bot上で変更されるファイルは同期しない(まとめるべきかも)
+/resource/pokemon_senryu.csv
+/save
 /log
-#レポートは同期しない
-/save/report.csv
-/save/studentid.csv
+
 
 #リポジトリに共有したくないファイルはtempフォルダに配置してください
 /temp
