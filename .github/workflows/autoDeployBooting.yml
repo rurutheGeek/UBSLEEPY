@@ -27,5 +27,5 @@ jobs:
           else
               echo not killed.
           fi
-          RUNNER_TRACKING_ID="" && nohup python3 main.py &
+          RUNNER_TRACKING_ID="" && nohup python3 main.py > log/nohup_stdout.log 2> log/nohup_system.log&
           echo boot ok.

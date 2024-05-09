@@ -4,9 +4,54 @@ from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 from .config import *
 import json
+#bot_module/func.pyをas ubでインポート
+import bot_module.func as ub
 
 ERROR_COLOR = 0xFF0000
 
+
+def balance(userName: str, pocketMoney: int,numOfPeople:int,userRank: int,rank_list: list = [], sendTime: datetime = None,authorPath: str="") -> discord.Embed:
+    '''残高照会Embedを生成する
+    Parameters:
+    ----------
+        name : str
+            ユーザー名
+        pocketMoney : int
+            おこづかい残高
+        numOfPeople : int
+            ユーザー数
+        rank : int
+            ユーザーの順位
+        rank_list : list
+            ユーザーランキングリスト
+        sendTime : datetime
+            メッセージ送信時刻
+        authorPath : str
+            アイコン画像パス
+    '''
+    embed = discord.Embed(
+        title="おこづかい銀行",
+        color=0x00FF00,
+        description=f"``` {userName} おかえりなさい! しっかり やってる みたいね ```\n"\
+            f"{BALL_ICON}**あずけている きんがく    {pocketMoney}円**\n\n　"\
+    )
+    rankMsg=""
+    for i in range(0, 5):
+        id=rank_list[i][0]
+        money=rank_list[i][1]
+        rank=rank_list[i][2]
+        rankMsg+=f"#{rank:.0f}  I <@!{id}> "
+        rankMsg+='\N{Military Medal}' if rank == 1 else ''
+        rankMsg+=f"`{money}円`\n"
+
+    embed.add_field(name=f"おこづかいランキング ({sendTime.strftime('%Y/%m/%d %H:%M:%S')}現在)", value=rankMsg+f"\nあなたの順位: {numOfPeople}人中 {userRank}位\n", inline=False)
+    embed.add_field(name="",value="``` たいせつに あずかっておくから あなたも しっかりね! ```", inline=False)
+    if authorPath:
+        embed.set_author(name="おかあさん",
+            icon_url=authorPath
+        )
+    embed.set_footer(text="No.x おこづかい銀行")
+    return embed
 
 def welcome(name: str, url: str) -> discord.Embed:
     embed = discord.Embed(
@@ -25,7 +70,7 @@ def welcome(name: str, url: str) -> discord.Embed:
         value=f"{BALL_ICON}<#{REACTIONROLE_CHANNEL_ID}>",
         inline=False,
     )
-    embed.set_thumbnail(url=url)
+    embed.set_author(url=url)
 
     return embed
 

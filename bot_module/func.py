@@ -1,9 +1,9 @@
 ﻿# -*- coding: utf-8 -*-
 # func.py
-
 from .config import *
 
 import os
+import getpass
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 import random
@@ -15,6 +15,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 #import japanize_matplotlib
 import discord
+import json
 
 def output_log(logStr):
     """Botの動作ログをコンソールとLOG_CHANNELに出力する
@@ -24,19 +25,24 @@ def output_log(logStr):
       出力するログの文字列
     """
     dt = datetime.now(ZoneInfo("Asia/Tokyo"))
-    logstr = f"[{dt.hour:02}:{dt.minute:02}:{dt.second:02}] {logStr}"
+    logstr = f"[{dt.hour:02}:{dt.minute:02}:{dt.second:02}|{getpass.getuser()}] {logStr}"
     # ログをコンソールに表示する
     print(logstr)
     # ログをファイルに出力し,30秒ごとに投稿する
-    with open("log/system_log.txt", "a+", encoding="utf-8") as file:
+    with open(SYSTEMLOG_PATH, "a+", encoding="utf-8") as file:
         file.write(logstr + "\n")
 
 def format_text(input: str) -> str:
-  '''テキストの整形を行う
+  '''テキストの整形(あｱＡa>アアAA)を行う
   Parameters:
   ----------
   input : str
     変換元テキスト
+
+  Returns:
+  ----------
+  fixed : str
+    変換後テキスト
   '''
   fixed = input
   # ひらがなをカタカナに変換
@@ -66,11 +72,11 @@ def fetch_pokemon(input: str) -> pd.DataFrame:
     fixedName = POKENAME_PREFIX_DICT[fixedName[0]] + fixedName[1:]
 
   # データベースをカタカナに
-  kata_breloom_df = GROBAL_BRELOOM_DF.iloc[:, 1:5].applymap(lambda x: jaconv.hira2kata(str(x)))
+  kata_breloom_df = GLOBAL_BRELOOM_DF.iloc[:, 1:5].applymap(lambda x: jaconv.hira2kata(str(x)))
   SearchedData = kata_breloom_df[(kata_breloom_df['おなまえ'] == fixedName) | (kata_breloom_df['インデックス1'] == fixedName) | (kata_breloom_df['インデックス2'] == fixedName) | (kata_breloom_df['インデックス3'] == fixedName)]
   
   if len(SearchedData) > 0:
-    return GROBAL_BRELOOM_DF.iloc[SearchedData.index]
+    return GLOBAL_BRELOOM_DF.iloc[SearchedData.index]
   else:
     output_log(fixedName+"の図鑑データは見つかりませんでした")
     return None
@@ -84,7 +90,7 @@ def filter_dataframe(filter_dict):
     フィルタリング条件の辞書
   '''
   output_log("以下の条件でデータベースをフィルタリングします\n "+str(filter_dict))
-  filteredPokeData = GROBAL_BRELOOM_DF.copy()
+  filteredPokeData = GLOBAL_BRELOOM_DF.copy()
   
   for key, value in filter_dict.items():
     if key == 'タイプ':
@@ -212,6 +218,7 @@ def report(userId, repoIndex: str, modifi: int) -> int:
   int
   レポート後の値
   '''
+  output_log(f"レポートを確認します: {userId} {repoIndex}")
   reports = pd.read_csv(REPORT_PATH, index_col=0)
   
   if repoIndex not in reports.columns:
@@ -235,8 +242,6 @@ def report(userId, repoIndex: str, modifi: int) -> int:
     reports.loc[userId, repoIndex] += modifi
     reports.to_csv(REPORT_PATH, index=True, index_label="ユーザーID", float_format="%.0f") # 編集したデータをCSVファイルに書き込む
     output_log("レポートに書き込みました")
-  else:
-    output_log("レポートは変更されませんでした")
   
   return reports.loc[userId, repoIndex]
 
@@ -248,13 +253,13 @@ def make_filter_dict(values: list[str]) -> dict[str,str]:
   new_dict={}
   #valueがどのインデックスに該当するか検索
   for i in range(len(values)):
-    if values[i] in GROBAL_BRELOOM_DF['進化段階'].unique().tolist():
+    if values[i] in GLOBAL_BRELOOM_DF['進化段階'].unique().tolist():
       dictIndex='進化段階'
     elif values[i] in ['1','2','3','4','5','6','7','8','9']:
       dictIndex='初登場世代'
-    elif values[i] in GROBAL_BRELOOM_DF['出身地'].unique().tolist():
+    elif values[i] in GLOBAL_BRELOOM_DF['出身地'].unique().tolist():
       dictIndex='出身地'
-    elif values[i] in GROBAL_BRELOOM_DF['タイプ1'].unique().tolist():
+    elif values[i] in GLOBAL_BRELOOM_DF['タイプ1'].unique().tolist():
       dictIndex='タイプ'
     elif values[i].upper().startswith(tuple(BASE_STATS_DICT.keys())):
       for key in BASE_STATS_DICT.keys():
@@ -262,7 +267,7 @@ def make_filter_dict(values: list[str]) -> dict[str,str]:
           dictIndex = BASE_STATS_DICT[key]
           values[i] = values[i][len(key):]  # 数字の部分だけを抜き出す
           break
-    elif values[i] in np.unique(GROBAL_BRELOOM_DF[['特性1','特性2','隠れ特性']].astype(str).values.ravel()):
+    elif values[i] in np.unique(GLOBAL_BRELOOM_DF[['特性1','特性2','隠れ特性']].astype(str).values.ravel()):
       dictIndex='特性'
     else:
       continue
@@ -275,12 +280,33 @@ def make_filter_dict(values: list[str]) -> dict[str,str]:
   output_log("以下のフィルタ辞書を生成しました\n "+str(new_dict))
   return new_dict
 
+def attachment_file(file_path: str) -> discord.File:
+  '''discordのファイルオブジェクトを生成する
+  Parameters:
+  ----------
+  file_path : str
+  元ファイルのパス
+
+  Returns:
+  ----------
+  file : discord.File
+  生成したファイルオブジェクト
+  attachment_path : str
+  添付ファイルのパス
+  '''
+  filename = f"attachedImage{os.path.splitext(file_path)[1]}"
+  if not os.path.exists(file_path):
+      file_path = NOTFOUND_IMAGE_PATH
+  file = discord.File(file_path, filename=filename)
+  attachment_path=f"attachment://{filename}"
+  output_log(f"次のファイルを添付します: {file_path}")
+  return file,attachment_path
 
 def show_calendar(day: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))) -> discord.Embed:
   calendarTitle = BALL_ICON
   
   if day.date() == datetime.now(ZoneInfo("Asia/Tokyo")).date():
-    calendarTitle += f'{day.strftime("%Y/%m/%d")} ({WEAK_DICT[day.weekday()]}) 今日のできごと'
+    calendarTitle += f'{day.strftime("%Y/%m/%d")} ({WEAK_DICT[str(day.weekday())]}) 今日のできごと'
   else:
     calendarTitle += f'{day.strftime("%m/%d")}のできごと'
 
