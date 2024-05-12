@@ -233,7 +233,9 @@ def report(userId, repoIndex: str, modifi: int) -> int:
     user = client.get_user(userId)
     row = pd.DataFrame([[0] * len(reports.columns)], columns=reports.columns, index=[userId])
     #先頭列のID以外の初期値を入力
-    reports = reports.append(row)
+    #reports = reports.append(row)
+    reports = pd.concat([reports, row], ignore_index=False)
+    
     reports.loc[userId, 'ユーザー名']=user.name
     reports.loc[userId, 'クジびきけん']=1  # レポートに新しい行を追加
     output_log("新たなレポートを作成しました")
