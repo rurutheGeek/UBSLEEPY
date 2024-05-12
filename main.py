@@ -879,9 +879,7 @@ async def on_voice_state_update(member, before, after):
     time = datetime.now(ZoneInfo("Asia/Tokyo"))
 
     if os.path.exists(CALLDATA_PATH):
-        call_df = pd.read_csv(CALLDATA_PATH, dtype={"累計参加メンバー": str}).set_index(
-            "チャンネルID"
-        )
+        call_df = pd.read_csv(CALLDATA_PATH, dtype={"累計参加メンバー": str})
     else:
         call_df = pd.DataFrame(
             columns=[
@@ -892,7 +890,8 @@ async def on_voice_state_update(member, before, after):
                 "名前読み上げ",
                 "累計参加メンバー",
             ]
-        ).set_index("チャンネルID")
+        )
+    call_df.set_index("チャンネルID", inplace=True)
 
     if after.channel:
         if member.bot:
@@ -1514,7 +1513,7 @@ class CallPost:  # await CallPost(*,discord.channel,channelID).start(member,time
         if os.path.exists(CALLDATA_PATH):
             self.call_df = pd.read_csv(
                 CALLDATA_PATH, dtype={"累計参加メンバー": str}
-            ).set_index("チャンネルID")
+            ).set_index("チャンネルID",drop=False)
         else:
             self.call_df = pd.DataFrame(
                 columns=[
@@ -1525,7 +1524,7 @@ class CallPost:  # await CallPost(*,discord.channel,channelID).start(member,time
                     "名前読み上げ",
                     "累計参加メンバー",
                 ]
-            ).set_index("チャンネルID")
+            ).set_index("チャンネルID",drop=False)
 
     async def start(
         self, member, time: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))
@@ -1556,33 +1555,27 @@ class CallPost:  # await CallPost(*,discord.channel,channelID).start(member,time
             file=attachedImage[0], embed=startEmbed
         )
 
+        #FutureWarning: In a future version, object-dtype columns with all-bool values will not be included in reductions with bool_only=True. Explicitly cast to bool dtype instead. 
         newBusyData = pd.DataFrame(
-            {
-                "メッセージID": [startMessage.id],
-                "通話開始": [time.strftime("%Y/%m/%d %H:%M:%S")],
-                "タイトル": [defaultTitle],
-                "名前読み上げ": [False],
-                "累計参加メンバー": [member.id],
-            },
+            data=[[self.channel.id,startMessage.id,time.strftime("%Y/%m/%d %H:%M:%S"),defaultTitle,False,member.id]],
             index=[self.channel.id],
-        ).iloc[0]
-
+            columns=["チャンネルID","メッセージID","通話開始","タイトル","名前読み上げ","累計参加メンバー"]
+        ).astype({"名前読み上げ":bool})
         if self.channel.id not in self.call_df.index:
             # appendは使用しない AttributeError: 'DataFrame' object has no attribute 'append'
-            # self.call_df = self.call_df.append(newBusyData)
-            self.call_df = pd.concat(
-                [self.call_df, pd.DataFrame(newBusyData).T], ignore_index=False
-            )
+            self.call_df = pd.concat([self.call_df, newBusyData])
 
         else:
             self.call_df.loc[self.channel.id] = newBusyData
-        self.call_df.to_csv(CALLDATA_PATH)
+            #self.call_df[self.call_df[self.channel.id]] = newBusyData
+            ub.output_log("通話キャッシュを更新しました")
+
+        self.call_df.to_csv(CALLDATA_PATH,index=False)
 
         await self.channel.send(
-            file=attachedImage[0],
             embed=discord.Embed(
                 title="通話開始",
-                description="`/title` 通話目的を変更できます\n`/invite` メンバーを招待できます",
+                description="`/calltitle` 通話目的を変更できます\n`/invite` メンバーを招待できます",
                 color=embedColor,
             ).set_footer(text=time.strftime("%Y/%m/%d %H:%M:%S")),
         )
@@ -1693,9 +1686,11 @@ class CallPost:  # await CallPost(*,discord.channel,channelID).start(member,time
         return True
 
     async def __load(self):
+        #"チャンネルID"列に指定のチャンネルIDがあるか確認 (indexではない)
         if self.channel.id in self.call_df.index:
             try:
                 self.message = await self.sendChannel.fetch_message(
+                    #指定の"チャンネルID"の"メッセージID"を取得
                     self.call_df.loc[self.channel.id, "メッセージID"]
                 )
             except discord.NotFound:
