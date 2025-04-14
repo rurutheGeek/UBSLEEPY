@@ -18,6 +18,8 @@ jobs:
           fi
       - uses: actions/checkout@v2
       - name: deploy
+        env:
+          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
         run: |
           #!/bin/sh
           
@@ -34,5 +36,7 @@ jobs:
           else
               echo not killed.
           fi
-          RUNNER_TRACKING_ID="" && nohup python3 main.py > log/nohup_stdout.log 2> log/nohup_system.log&
+          
+          # 環境変数を引き継いでボットを起動
+          RUNNER_TRACKING_ID="" && DISCORD_TOKEN="$DISCORD_TOKEN" nohup python3 main.py > log/nohup_stdout.log 2> log/nohup_system.log&
           echo boot ok.
