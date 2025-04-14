@@ -17,6 +17,17 @@ jobs:
               exit 1
           fi
       - uses: actions/checkout@v2
+      - name: Install tmux if not present
+        run: |
+          #!/bin/sh
+          if ! command -v tmux &> /dev/null; then
+              echo "tmux is not installed. Installing..."
+              sudo apt-get update
+              sudo apt-get install -y tmux
+              echo "tmux installed successfully."
+          else
+              echo "tmux is already installed."
+          fi
       - name: deploy
         env:
           DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
@@ -37,6 +48,12 @@ jobs:
               echo not killed.
           fi
           
-          # 環境変数を引き継いでボットを起動
-          RUNNER_TRACKING_ID="" && DISCORD_TOKEN="$DISCORD_TOKEN" nohup python3 main.py > log/nohup_stdout.log 2> log/nohup_system.log&
+          # すでに存在するtmuxセッションを終了
+          tmux kill-session -t discord_bot 2>/dev/null || true
+          
+          # 新しいtmuxセッションを作成して、その中でボットを実行
+          tmux new-session -d -s discord_bot "DISCORD_TOKEN=$DISCORD_TOKEN python3 main.py | tee -a log/console_output.log"
+          
+          echo "Bot started in tmux session 'discord_bot'"
+          echo "To view bot console, connect to the Raspberry Pi and run: tmux attach -t discord_bot"
           echo boot ok.
