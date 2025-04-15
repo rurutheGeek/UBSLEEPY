@@ -14,10 +14,13 @@ jobs:
           #!/bin/sh
           if [ "$GITHUB_ACTOR" != "rurutheGeek" ]; then
               echo "You are not authorized to run this workflow."
+              echo "Please contact the repository owner."
               exit 1
           fi
       - uses: actions/checkout@v2
       - name: Install tmux if not present
+        echo "In this workflow, we use tmux for session management."
+        echo "Checking if tmux is installed..."
         run: |
           #!/bin/sh
           if ! command -v tmux &> /dev/null; then
@@ -29,8 +32,6 @@ jobs:
               echo "tmux is already installed."
           fi
       - name: deploy
-        env:
-          DISCORD_TOKEN: ${{ secrets.DISCORD_TOKEN }}
         run: |
           #!/bin/sh
           
@@ -39,21 +40,48 @@ jobs:
           git reset --hard
           git --git-dir=.git pull origin main
           echo pull ok.
-          
-          echo ...UBSLEEPY restarting...
+      
+      - name: restart
+          echo "UBSLEEPY Terminate existing processes."
           if pgrep -f "main.py" > /dev/null; then
+              echo "UBSLEEPY is running. Attempting to kill..."
               pkill -f "main.py"
-              echo killed.
+              echo "UBSLEEPY killed."
           else
-              echo not killed.
+              echo "UBSLEEPY is not running."
           fi
-          
+      
+      - name: tmux-start
           # すでに存在するtmuxセッションを終了
+          echo "Terminating existing tmux session..."
           tmux kill-session -t discord_bot 2>/dev/null || true
           
           # 新しいtmuxセッションを作成して、その中でボットを実行
-          tmux new-session -d -s discord_bot "DISCORD_TOKEN=$DISCORD_TOKEN python3 main.py | tee -a log/console_output.log"
-          
+          echo "Starting new tmux session..."
+          tmux new-session -d -s discord_bot "python3 main.py | tee -a log/console_output.log"
+          # main.pyが正常に動作したかどうかを確認
+
+          if tmux has-session -t discord_bot 2>/dev/null; then
+            echo "Wait 5 seconds to check system operation"
+            sleep 5  # main.pyが起動する時間を与える
+            
+            # tmuxセッション内でプロセスが実行されていることを確認
+            if tmux list-panes -t discord_bot -F "#{pane_pid}" | xargs ps --pid 2>/dev/null; then
+              echo "Bot started successfully in tmux session 'discord_bot'"
+              echo "To view bot console, connect to the Raspberry Pi and run: tmux attach -t discord_bot"
+              echo "Boot ok."
+              exit 0
+            else
+              echo "ERROR: Unfortunately, it seems that tmux sessions are not persisted."
+              echo "Check 'UBSLEEPY/log/nohup_system.log'"
+              exit 1
+            fi
+          else
+            echo "ERROR: Failed to create tmux session..."
+            echo "Check 'UBSLEEPY/log/nohup_system.log'"
+            exit 1
+          fi
+
           echo "Bot started in tmux session 'discord_bot'"
           echo "To view bot console, connect to the Raspberry Pi and run: tmux attach -t discord_bot"
           echo boot ok.
