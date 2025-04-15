@@ -19,10 +19,9 @@ jobs:
           fi
       - uses: actions/checkout@v2
       - name: Install tmux if not present
-        echo "In this workflow, we use tmux for session management."
-        echo "Checking if tmux is installed..."
         run: |
-          #!/bin/sh
+          echo "In this workflow, we use tmux for session management."
+          echo "Checking if tmux is installed..."
           if ! command -v tmux &> /dev/null; then
               echo "tmux is not installed. Installing..."
               sudo apt-get update
@@ -42,6 +41,7 @@ jobs:
           echo pull ok.
       
       - name: restart
+        run: |
           echo "UBSLEEPY Terminate existing processes."
           if pgrep -f "main.py" > /dev/null; then
               echo "UBSLEEPY is running. Attempting to kill..."
@@ -52,6 +52,7 @@ jobs:
           fi
       
       - name: tmux-start
+        run: |
           # すでに存在するtmuxセッションを終了
           echo "Terminating existing tmux session..."
           tmux kill-session -t discord_bot 2>/dev/null || true
@@ -81,7 +82,3 @@ jobs:
             echo "Check 'UBSLEEPY/log/nohup_system.log'"
             exit 1
           fi
-
-          echo "Bot started in tmux session 'discord_bot'"
-          echo "To view bot console, connect to the Raspberry Pi and run: tmux attach -t discord_bot"
-          echo boot ok.
