@@ -59,8 +59,7 @@ jobs:
           
           # 新しいtmuxセッションを作成して、その中でボットを実行
           echo "Starting new tmux session..."
-          tmux new-session -d -s discord_bot "python3 main.py | tee -a log/console_output.log"
-          # main.pyが正常に動作したかどうかを確認
+          nohup tmux new-session -d -s discord_bot "cd /home/ruru/UBSLEEPY && python3 main.py >> log/console_output.log 2>&1" &
 
           if tmux has-session -t discord_bot 2>/dev/null; then
             echo "Bot started successfully in tmux session 'discord_bot'"
