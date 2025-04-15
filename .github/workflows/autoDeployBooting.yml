@@ -18,18 +18,6 @@ jobs:
               exit 1
           fi
       - uses: actions/checkout@v2
-      - name: Install tmux if not present
-        run: |
-          echo "In this workflow, we use tmux for session management."
-          echo "Checking if tmux is installed..."
-          if ! command -v tmux &> /dev/null; then
-              echo "tmux is not installed. Installing..."
-              sudo apt-get update
-              sudo apt-get install -y tmux
-              echo "tmux installed successfully."
-          else
-              echo "tmux is already installed."
-          fi
       - name: deploy
         run: |
           #!/bin/sh
@@ -40,34 +28,17 @@ jobs:
           git --git-dir=.git pull origin main
           echo pull ok.
       
-      - name: restart
+      - name: terminate
         run: |
-          echo "UBSLEEPY Terminate existing processes."
+          echo ...UBSLEEPY restarting...
           if pgrep -f "main.py" > /dev/null; then
-              echo "UBSLEEPY is running. Attempting to kill..."
               pkill -f "main.py"
-              echo "UBSLEEPY killed."
+              echo killed.
           else
-              echo "UBSLEEPY is not running."
+              echo not killed.
           fi
       
-      - name: tmux-start
+      - name: start
         run: |
-          # すでに存在するtmuxセッションを終了
-          echo "Terminating existing tmux session..."
-          tmux kill-session -t discord_bot 2>/dev/null || true
-          
-          # 新しいtmuxセッションを作成して、その中でボットを実行
-          echo "Starting new tmux session..."
-          nohup tmux new-session -d -s discord_bot "cd /home/ruru/UBSLEEPY && python3 main.py >> log/console_output.log 2>&1" &
-
-          if tmux has-session -t discord_bot 2>/dev/null; then
-            echo "Bot started successfully in tmux session 'discord_bot'"
-            echo "To view bot console, connect to the Raspberry Pi and run: tmux attach -t discord_bot"
-            echo "Boot ok."
-            exit 0
-          else
-            echo "ERROR: Failed to create tmux session..."
-            echo "Check 'UBSLEEPY/log/nohup_system.log'"
-            exit 1
-          fi
+          RUNNER_TRACKING_ID="" && nohup python3 main.py > log/nohup_stdout.log 2> log/nohup_system.log&
+          echo boot ok.
