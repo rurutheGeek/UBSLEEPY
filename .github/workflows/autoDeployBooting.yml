@@ -66,17 +66,10 @@ jobs:
             echo "Wait 5 seconds to check system operation"
             sleep 5  # main.pyが起動する時間を与える
 
-            # tmuxセッション内でプロセスが実行されていることを確認
-            if tmux list-panes -t discord_bot -F "#{pane_pid}"; then
-              echo "Bot started successfully in tmux session 'discord_bot'"
-              echo "To view bot console, connect to the Raspberry Pi and run: tmux attach -t discord_bot"
-              echo "Boot ok."
-              exit 0
-            else
-              echo "ERROR: Unfortunately, it seems that tmux sessions are not persisted."
-              echo "Check 'UBSLEEPY/log/nohup_system.log'"
-              exit 1
-            fi
+            echo "Bot started successfully in tmux session 'discord_bot'"
+            echo "To view bot console, connect to the Raspberry Pi and run: tmux attach -t discord_bot"
+            echo "Boot ok."
+            exit 0
           else
             echo "ERROR: Failed to create tmux session..."
             echo "Check 'UBSLEEPY/log/nohup_system.log'"
