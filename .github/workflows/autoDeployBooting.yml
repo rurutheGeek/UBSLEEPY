@@ -9,14 +9,6 @@ jobs:
     name: booting
     runs-on: [self-hosted, linux, ARM64]
     steps:
-      - name: Check user permission
-        run: |
-          #!/bin/sh
-          if [ "$GITHUB_ACTOR" != "rurutheGeek" ]; then
-              echo "You are not authorized to run this workflow."
-              echo "Please contact the repository owner."
-              exit 1
-          fi
       - uses: actions/checkout@v2
       - name: deploy
         run: |
@@ -27,9 +19,7 @@ jobs:
           git reset --hard
           git --git-dir=.git pull origin main
           echo pull ok.
-      
-      - name: terminate
-        run: |
+          
           echo ...UBSLEEPY restarting...
           if pgrep -f "main.py" > /dev/null; then
               pkill -f "main.py"
@@ -37,8 +27,5 @@ jobs:
           else
               echo not killed.
           fi
-      
-      - name: start
-        run: |
           RUNNER_TRACKING_ID="" && nohup python3 main.py > log/nohup_stdout.log 2> log/nohup_system.log&
           echo boot ok.
