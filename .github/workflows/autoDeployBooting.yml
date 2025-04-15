@@ -65,9 +65,9 @@ jobs:
           if tmux has-session -t discord_bot 2>/dev/null; then
             echo "Wait 5 seconds to check system operation"
             sleep 5  # main.pyが起動する時間を与える
-            
+
             # tmuxセッション内でプロセスが実行されていることを確認
-            if tmux list-panes -t discord_bot -F "#{pane_pid}" | xargs ps --pid 2>/dev/null; then
+            if tmux list-panes -t discord_bot -F "#{pane_pid}"; then
               echo "Bot started successfully in tmux session 'discord_bot'"
               echo "To view bot console, connect to the Raspberry Pi and run: tmux attach -t discord_bot"
               echo "Boot ok."
