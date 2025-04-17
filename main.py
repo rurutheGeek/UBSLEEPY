@@ -82,8 +82,80 @@ async def on_ready():
             await daily_bonus(now.replace(hour=5, minute=0, second=0, microsecond=0))
 
         ub.output_log("botが起動しました")
+        
+# ===================================================================================================
+# テスト処理
 
+@tree.command(name="comp", description="2匹のポケモンの種族値を比較します")
+@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
+@discord.app_commands.describe(
+    pokemon1="1匹目のポケモン名",
+    pokemon2="2匹目のポケモン名"
+)
+async def slash_comp(interaction: discord.Interaction, pokemon1: str, pokemon2: str):
+    # ポケモンデータの取得
+    poke_data1 = ub.fetch_pokemon(pokemon1)
+    poke_data2 = ub.fetch_pokemon(pokemon2)
 
+    if poke_data1 is None or poke_data2 is None:
+        error_message = f"{pokemon1 if poke_data1 is None else pokemon2} のデータが見つかりませんでした"
+        await interaction.response.send_message(content=error_message, ephemeral=True)
+        return
+
+    poke1_name = poke_data1.iloc[0]['おなまえ']
+    poke2_name = poke_data2.iloc[0]['おなまえ']
+
+    # 種族値データの取得
+    bss1 = [
+        int(poke_data1.iloc[0]['HP']),
+        int(poke_data1.iloc[0]['こうげき']),
+        int(poke_data1.iloc[0]['ぼうぎょ']),
+        int(poke_data1.iloc[0]['とくこう']),
+        int(poke_data1.iloc[0]['とくぼう']),
+        int(poke_data1.iloc[0]['すばやさ'])
+    ]
+
+    bss2 = [
+        int(poke_data2.iloc[0]['HP']),
+        int(poke_data2.iloc[0]['こうげき']),
+        int(poke_data2.iloc[0]['ぼうぎょ']),
+        int(poke_data2.iloc[0]['とくこう']),
+        int(poke_data2.iloc[0]['とくぼう']),
+        int(poke_data2.iloc[0]['すばやさ'])
+    ]
+
+    # グラフの生成添付
+    graph1_path = ub.generate_graph(bss1)
+    attach_image1 = discord.File(graph1_path, filename="graph1.png")
+    graph2_path = ub.generate_graph(bss2)
+    attach_image2 = discord.File(graph2_path, filename="graph2.png")
+
+    # Embedの作成
+    embed = discord.Embed(
+        title="種族値比較",
+        description=f"**{poke1_name}** と **{poke2_name}** の種族値を比較",
+        color=0x00BFFF
+    )
+    embed.add_field(
+        name=f"{poke1_name}",
+        value=f"{bss1[0]}-{bss1[1]}-{bss1[2]}-{bss1[3]}-{bss1[4]}-{bss1[5]} 合計{sum(bss1)}",
+        inline=False
+    )
+    embed.add_field(
+        name=f"{poke2_name}",
+        value=f"{bss2[0]}-{bss2[1]}-{bss2[2]}-{bss2[3]}-{bss2[4]}-{bss2[5]} 合計{sum(bss2)}",
+        inline=False
+    )
+    embed.set_image(url="attachment://graph1.png")
+    embed.set_thumbnail(url="attachment://graph2.png")
+    embed.set_footer(text="種族値の比較")
+
+    # メッセージ送信
+    await interaction.response.send_message(
+        files=[attach_image1, attach_image2],
+        embed=embed
+    )
+    
 # ===================================================================================================
 # 定期的に実行する処理
 
