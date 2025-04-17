@@ -10,6 +10,7 @@ import random
 import re
 import asyncio
 import json
+from PIL import Image
 
 # 外部ライブラリ
 ##https://discordpy.readthedocs.io/ja/latest/index.html
@@ -89,8 +90,8 @@ async def on_ready():
 @tree.command(name="comp", description="2匹のポケモンの種族値を比較します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 @discord.app_commands.describe(
-    pokemon1="1匹目のポケモン名",
-    pokemon2="2匹目のポケモン名"
+    pokemon1="1匹目のポケモン",
+    pokemon2="2匹目のポケモン"
 )
 async def slash_comp(interaction: discord.Interaction, pokemon1: str, pokemon2: str):
     # ポケモンデータの取得
@@ -124,35 +125,53 @@ async def slash_comp(interaction: discord.Interaction, pokemon1: str, pokemon2: 
         int(poke_data2.iloc[0]['すばやさ'])
     ]
 
-    # グラフの生成添付
+    # グラフの生成と合成
     graph1_path = ub.generate_graph(bss1)
-    attach_image1 = discord.File(graph1_path, filename="graph1.png")
+    img1 = Image.open(graph1_path).save("temp.png").close()
+    img1 = Image.open("temp.png")
+
     graph2_path = ub.generate_graph(bss2)
-    attach_image2 = discord.File(graph2_path, filename="graph2.png")
+    img2 = Image.open(graph2_path).save("temp2.png").close()
+    img2 = Image.open("temp2.png")
+
+    # 画像を横に並べる
+    combined_img = Image.new('RGB', (img1.width + img2.width, max(img1.height, img2.height)))
+    combined_img.paste(img1, (0, 0))
+    combined_img.paste(img2, (img1.width, 0))
+    # 画像を閉じる
+    img1.close()
+    img2.close()
+    os.remove("temp.png")
+    os.remove("temp2.png")
+
+    # 保存する
+    combined_img_path = "compared_graph.png"
+    combined_img.save(combined_img_path).close()
+
+    # グラフ画像をdiscordに添付する
+    attach_image = discord.File(combined_img_path, filename="compared_graph.png")
 
     # Embedの作成
     embed = discord.Embed(
-        title="種族値比較",
-        description=f"**{poke1_name}** と **{poke2_name}** の種族値を比較",
+        title=f"**{poke1_name}** と **{poke2_name}** の種族値を比較",
         color=0x00BFFF
     )
     embed.add_field(
         name=f"{poke1_name}",
         value=f"{bss1[0]}-{bss1[1]}-{bss1[2]}-{bss1[3]}-{bss1[4]}-{bss1[5]} 合計{sum(bss1)}",
-        inline=False
+        inline=True
     )
     embed.add_field(
         name=f"{poke2_name}",
         value=f"{bss2[0]}-{bss2[1]}-{bss2[2]}-{bss2[3]}-{bss2[4]}-{bss2[5]} 合計{sum(bss2)}",
         inline=False
     )
-    embed.set_image(url="attachment://graph1.png")
-    embed.set_thumbnail(url="attachment://graph2.png")
-    embed.set_footer(text="種族値の比較")
+    embed.set_image(url="attachment://compared_graph.png")
+    embed.set_footer(text="種族値を比較")
 
     # メッセージ送信
     await interaction.response.send_message(
-        files=[attach_image1, attach_image2],
+        files=[attach_image],
         embed=embed
     )
     
