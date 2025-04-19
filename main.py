@@ -1810,5 +1810,5 @@ class CallPost:  # await CallPost(*,discord.channel,channelID).start(member,time
 # ===================================================================================================
 # トークンの取得とBOTの起動
 
-load_dotenv()
+load_dotenv(override=True)
 client.run(os.environ.get("DISCORD_TOKEN"), reconnect=True)
