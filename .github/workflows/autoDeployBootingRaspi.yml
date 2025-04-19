@@ -17,7 +17,7 @@ jobs:
         run: |
           #!/bin/sh
 
-          if python setup/check_env.py; then
+          if python setup/check_dotenv.py; then
             echo ".env file found"
           else
             echo ".env file not found"
