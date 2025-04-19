@@ -1,0 +1,58 @@
+name: Workflow of auto deploying and booting apps on Raspberry Pi
+on:
+  push:
+    branches: 
+      - main
+  workflow_dispatch:
+jobs:
+  deploy:
+    name: booting
+    runs-on: [self-hosted, linux, ARM64]
+    defaults:
+      run:
+        working-directory: /home/ruru/UBSLEEPY/
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check .env file
+        run: |
+          #!/bin/sh
+
+          if python setup/check_env.py; then
+            echo ".env file found"
+          else
+            echo ".env file not found"
+          fi
+
+      - name: downloading
+        run: |
+          #!/bin/sh
+          
+          echo ...UBSLEEPY downloading...
+          git reset --hard
+          git --git-dir=.git pull origin main
+          echo pull ok.
+
+      - name: restarting
+        run: |
+          #!/bin/sh
+          
+          echo ...UBSLEEPY restarting...
+          if pgrep -f "main.py" > /dev/null; then
+              pkill -f "main.py"
+              echo killed.
+          else
+              echo not killed.
+          fi
+      
+      - name: booting
+        run: |
+          #!/bin/sh
+          
+          echo ...UBSLEEPY booting...
+          RUNNER_TRACKING_ID="" && nohup python3 main.py > log/nohup_stdout.log 2> log/nohup_system.log&
+          echo boot ok.
+          
+          # 起動後すぐのログを確認
+          sleep 2
+          echo log/nohup_system.log :
+          tail -n 10 log/nohup_system.log
