@@ -1272,7 +1272,7 @@ class quiz:
                 await self.rm.add_reaction("⭕")
             result = await self.__disclose(True, fixAns)
             # リアクションは結果に基づいて付ける
-            if isMessage and result == 0:
+            if isMessage and result == 1:
                 await self.rm.remove_reaction("⭕", client.user)
         else:
             judge = "誤答"
@@ -1479,6 +1479,7 @@ class quiz:
             ub.output_log(f"クイズのフッター:{updated_message.embeds[0].footer.text}")
             if updated_message.embeds and "(done)" in updated_message.embeds[0].footer.text:
                 ub.output_log("クイズの処理中にクイズが終了しています")
+                QUIZ_PROCESSING_FLAG = 0  # 回答開示処理を終わる
                 return 1  # 処理中断（失敗）を示す値
         except Exception as e:
             ub.output_log(f"メッセージ取得中にエラー: {e}")
