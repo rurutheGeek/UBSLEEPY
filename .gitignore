@@ -8,12 +8,11 @@
 
 #bot上で変更されるファイルは同期しない(まとめるべきかも)
 /resource/pokemon_senryu.csv
-/save
-/log
-
+/save/*
+/log/*
 
 #リポジトリに共有したくないファイルはtempフォルダに配置してください
-/temp
+/temp/*
 
 #dontignoreファイルを目印として空のディレクトリを追跡する
 !dontignore
