@@ -620,7 +620,7 @@ async def on_message(message):
         ub.output_log("出題条件を表示します")
         await message.channel.send(response, embed=bqFilteredEmbed)
 
-    # リプライ(reference)に反応
+    # bot自身へのリプライ(reference)に反応
     elif message.reference is not None:
         # リプライ先メッセージのキャッシュを取得
         message.reference.resolved = await message.channel.fetch_message(
@@ -628,21 +628,17 @@ async def on_message(message):
         )
 
         # bot自身へのリプライに反応
-        """if (
-            message.reference.resolved.author == client.user
-            and message.reference.resolved.embeds
-        ):"""
-        if message.reference.resolved.embeds:
-            embedFooterText = message.reference.resolved.embeds[0].footer.text
-            # リプライ先にembedが含まれるかつ未回答のクイズの投稿か
-            if (
-                "No.26 ポケモンクイズ" in embedFooterText
-                and not "(done)" in embedFooterText
-            ):
-                await quiz(embedFooterText.split()[3]).try_response(message)
+        if message.reference.resolved.author == client.user:
+                embedFooterText = message.reference.resolved.embeds[0].footer.text
+                # リプライ先にembedが含まれるかつ未回答のクイズの投稿か
+                if (
+                    "No.26 ポケモンクイズ" in embedFooterText
+                    and not "(done)" in embedFooterText
+                ):
+                    await quiz(embedFooterText.split()[3]).try_response(message)
 
-            else:
-                ub.output_log("botへのリプライは無視されました")
+                else:
+                    ub.output_log("botへのリプライは無視されました")
 
 
     #チャンネルのidがQUIZ_CHANNEL_IDの場合
@@ -1180,9 +1176,6 @@ class quiz:
         )
 
     async def try_response(self, response):
-        if QUIZ_PROCESSING_FLAG == 1:
-            ub.output_log(f"{self.quizName}: 応答処理実行中につき処理を中断")
-            return
 
         # インスタンスがメッセージ/インタラクションかどうかで代入データを変える
         if isinstance(response, discord.Message):
@@ -1274,9 +1267,13 @@ class quiz:
 
         if fixAns in self.ansList:
             judge = "正答"
-            if isinstance(self.rm, discord.Message):
+            isMessage = isinstance(self.rm, discord.Message)
+            if isMessage:
                 await self.rm.add_reaction("⭕")
-            await self.__disclose(True, fixAns)
+            result = await self.__disclose(True, fixAns)
+            # リアクションは結果に基づいて付ける
+            if isMessage and result == 1:
+                await self.rm.remove_reaction("⭕", client.user)
         else:
             judge = "誤答"
             if isinstance(self.rm, discord.Message):
@@ -1413,8 +1410,14 @@ class quiz:
 
     async def __disclose(self, tf, answered=None):
         global QUIZ_PROCESSING_FLAG
-        ub.output_log(f"{self.quizName}: 回答開示を実行")
+
+        if QUIZ_PROCESSING_FLAG == 1:
+            ub.output_log(f"{self.quizName}: 応答処理実行中につき処理を中断")
+            return 1
+        
         QUIZ_PROCESSING_FLAG = 1  # 回答開示処理を始める
+        ub.output_log(f"{self.quizName}: 回答開示を実行")
+        
 
         if tf:  # 正解者がいる場合
             clearTime = self.rm.created_at - self.qm.created_at  # 所要時間を求める
@@ -1465,7 +1468,22 @@ class quiz:
 
         if not "Decamark" in link:
             self.quizEmbed.set_thumbnail(url=link)  # サムネイルを変更する
+
         self.quizEmbed.set_footer(text=self.quizEmbed.footer.text + "(done)")
+
+
+        # 処理前に最新のメッセージ状態を取得して確認
+        try:
+            # メッセージを再取得して最新の状態を確認
+            updated_message = await self.qm.channel.fetch_message(self.qm.id)
+            ub.output_log(f"クイズのフッター:{updated_message.embeds[0].footer.text}")
+            if updated_message.embeds and "(done)" in updated_message.embeds[0].footer.text:
+                ub.output_log("クイズの処理中にクイズが終了しています")
+                QUIZ_PROCESSING_FLAG = 0  # 回答開示処理を終わる
+                return 1  # 処理中断（失敗）を示す値
+        except Exception as e:
+            ub.output_log(f"メッセージ取得中にエラー: {e}")
+            # エラーがあっても処理継続
 
         if isinstance(self.rm, discord.Message):
             try:
@@ -1487,6 +1505,8 @@ class quiz:
 
         QUIZ_PROCESSING_FLAG = 0  # 回答開示処理を終わる
         await self.__continue()  # 連続出題を試みる
+        
+        return 0 
 
     async def __continue(self):
         if BAKUSOKU_MODE:
