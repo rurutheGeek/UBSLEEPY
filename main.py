@@ -1267,11 +1267,12 @@ class quiz:
 
         if fixAns in self.ansList:
             judge = "正答"
-            if isinstance(self.rm, discord.Message):
+            isMessage = isinstance(self.rm, discord.Message)
+            if isMessage:
                 await self.rm.add_reaction("⭕")
             result = await self.__disclose(True, fixAns)
             # リアクションは結果に基づいて付ける
-            if result == 0 and isinstance(self.rm, discord.Message):
+            if isMessage and result == 0:
                 await self.rm.remove_reaction("⭕", client.user)
         else:
             judge = "誤答"
