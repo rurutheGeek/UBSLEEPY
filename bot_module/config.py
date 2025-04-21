@@ -3,6 +3,7 @@
 import json
 import pandas as pd
 import sys
+import discord
 ####################################################################################################
 #グローバル変数の宣言
 QUIZ_PROCESSING_FLAG = 0  # クイズ処理中フラグ
@@ -52,7 +53,10 @@ TYPE_COLOR_DICT={}
 PRIZE_DICT={}
 DEFAULT_FILTER_DICT={}
 
-client = None
+client = discord.Client(
+    intents=discord.Intents.all(),
+    activity=discord.Activity(name="研修チュウ", type=discord.ActivityType.unknown),
+)
 
 DEBUG_MODE = False
 # 引数'debug'が指定されているとき,デバッグモードで起動
