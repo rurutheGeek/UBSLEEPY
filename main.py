@@ -1272,7 +1272,7 @@ class quiz:
                 await self.rm.add_reaction("⭕")
             result = await self.__disclose(True, fixAns)
             # リアクションは結果に基づいて付ける
-            if isMessage and result == 0:
+            if isMessage and result == 1:
                 await self.rm.remove_reaction("⭕", client.user)
         else:
             judge = "誤答"
