@@ -14,8 +14,8 @@
 #リポジトリに共有したくないファイルはtempフォルダに配置してください
 /temp/*
 
-#dontignoreファイルを目印として空のディレクトリを追跡する
-!dontignore
+#.gitkeepファイルを目印として空のディレクトリを追跡する
+#!.gitkeep
 
 #botトークンは共有しない(.envの中身は以下の通り)
 #DISCORD_TOKEN=ここにbotトークン
