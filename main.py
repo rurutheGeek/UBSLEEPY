@@ -10,6 +10,7 @@ import random
 import re
 import asyncio
 import json
+from PIL import Image
 
 # 外部ライブラリ
 ##https://discordpy.readthedocs.io/ja/latest/index.html
@@ -31,10 +32,6 @@ import bot_module.embed as ub_embed
 os.chdir(os.path.dirname(os.path.abspath(__file__)))
 
 # クライアントを作成
-client = discord.Client(
-    intents=discord.Intents.all(),
-    activity=discord.Activity(name="研修チュウ", type=discord.ActivityType.unknown),
-)
 tree = discord.app_commands.CommandTree(client)
 
 # ===================================================================================================
@@ -53,6 +50,10 @@ async def on_ready():
         syncGuildName = ""
         i = 0
         for guild_id in GUILD_IDS:
+            #client.get_guild(guild_id)がNoneの場合はスキップ
+            if client.get_guild(guild_id) is None:
+                ub.output_log(f"登録済のサーバーが見つかりません: {guild_id}")
+                continue
             syncGuildName += f"\n#{i} {client.get_guild(guild_id).name}"
             await tree.sync(guild=discord.Object(id=guild_id))
             i += 1
@@ -86,8 +87,11 @@ async def on_ready():
             await daily_bonus(now.replace(hour=5, minute=0, second=0, microsecond=0))
 
         ub.output_log("botが起動しました")
-
-
+        
+# ===================================================================================================
+# テスト処理
+        
+    
 # ===================================================================================================
 # 定期的に実行する処理
 
@@ -153,6 +157,103 @@ async def daily_bonus(now: datetime = None, channelid: int = DAIRY_CHANNEL_ID):
 
 # ===================================================================================================
 # スラッシュコマンド
+        
+        
+@tree.command(name="comp", description="2匹のポケモンの種族値を比較します")
+@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
+@discord.app_commands.describe(
+    pokemon1="1匹目のポケモン",
+    pokemon2="2匹目のポケモン"
+)
+async def slash_comp(interaction: discord.Interaction, pokemon1: str, pokemon2: str):
+    # ポケモンデータの取得
+    poke_data1 = ub.fetch_pokemon(pokemon1)
+    poke_data2 = ub.fetch_pokemon(pokemon2)
+
+    if poke_data1 is None or poke_data2 is None:
+        error_message = f"{pokemon1 if poke_data1 is None else pokemon2} のデータが見つかりませんでした"
+        await interaction.response.send_message(content=error_message, ephemeral=True)
+        return
+
+    poke1_name = poke_data1.iloc[0]['おなまえ']
+    poke2_name = poke_data2.iloc[0]['おなまえ']
+
+    # 種族値データの取得
+    bss1 = [
+        int(poke_data1.iloc[0]['HP']),
+        int(poke_data1.iloc[0]['こうげき']),
+        int(poke_data1.iloc[0]['ぼうぎょ']),
+        int(poke_data1.iloc[0]['とくこう']),
+        int(poke_data1.iloc[0]['とくぼう']),
+        int(poke_data1.iloc[0]['すばやさ'])
+    ]
+
+    bss2 = [
+        int(poke_data2.iloc[0]['HP']),
+        int(poke_data2.iloc[0]['こうげき']),
+        int(poke_data2.iloc[0]['ぼうぎょ']),
+        int(poke_data2.iloc[0]['とくこう']),
+        int(poke_data2.iloc[0]['とくぼう']),
+        int(poke_data2.iloc[0]['すばやさ'])
+    ]
+
+    # グラフの生成と合成
+    temp1_path = "save/temp1.png"
+    temp2_path = "save/temp2.png"
+    combined_img_path = "save/compared_graph.png"
+
+    graph1_path = ub.generate_graph(bss1)
+    img1 = Image.open(graph1_path)
+    img1.save(temp1_path)
+    img1.close()
+    img1 = Image.open(temp1_path)
+
+    graph2_path = ub.generate_graph(bss2)
+    img2 = Image.open(graph2_path)
+    img2.save(temp2_path)
+    img2.close()
+    img2 = Image.open(temp2_path)
+
+    # 画像を横に並べる
+    combined_img = Image.new('RGB', (img1.width + img2.width, max(img1.height, img2.height)))
+    combined_img.paste(img1, (0, 0))
+    combined_img.paste(img2, (img1.width, 0))
+    # 画像を閉じる
+    img1.close()
+    img2.close()
+    os.remove(temp1_path)
+    os.remove(temp2_path)
+
+    # 保存する
+    combined_img.save(combined_img_path)
+    combined_img.close()
+
+    # グラフ画像をdiscordに添付する
+    attach_image = discord.File(combined_img_path, filename="compared_graph.png")
+
+    # Embedの作成
+    embed = discord.Embed(
+        title=f"**{poke1_name}** と **{poke2_name}** の種族値を比較",
+        color=0x00BFFF
+    )
+    embed.add_field(
+        name=f"{poke1_name}",
+        value=f"{bss1[0]}-{bss1[1]}-{bss1[2]}-{bss1[3]}-{bss1[4]}-{bss1[5]} 合計{sum(bss1)}",
+        inline=True
+    )
+    embed.add_field(
+        name=f"{poke2_name}",
+        value=f"{bss2[0]}-{bss2[1]}-{bss2[2]}-{bss2[3]}-{bss2[4]}-{bss2[5]} 合計{sum(bss2)}",
+        inline=True
+    )
+    embed.set_image(url="attachment://compared_graph.png")
+    # embed.set_footer(text="種族値を比較")
+
+    # メッセージ送信
+    await interaction.response.send_message(
+        files=[attach_image],
+        embed=embed
+    )
 
 
 @tree.command(name="q", description="現在の出題設定に基づいてクイズを出題します")
@@ -519,6 +620,31 @@ async def on_message(message):
         ub.output_log("出題条件を表示します")
         await message.channel.send(response, embed=bqFilteredEmbed)
 
+    # リプライ(reference)に反応
+    elif message.reference is not None:
+        # リプライ先メッセージのキャッシュを取得
+        message.reference.resolved = await message.channel.fetch_message(
+            message.reference.message_id
+        )
+
+        # bot自身へのリプライに反応
+        """if (
+            message.reference.resolved.author == client.user
+            and message.reference.resolved.embeds
+        ):"""
+        if message.reference.resolved.embeds:
+            embedFooterText = message.reference.resolved.embeds[0].footer.text
+            # リプライ先にembedが含まれるかつ未回答のクイズの投稿か
+            if (
+                "No.26 ポケモンクイズ" in embedFooterText
+                and not "(done)" in embedFooterText
+            ):
+                await quiz(embedFooterText.split()[3]).try_response(message)
+
+            else:
+                ub.output_log("botへのリプライは無視されました")
+
+
     #チャンネルのidがQUIZ_CHANNEL_IDの場合
     elif message.channel.id == QUIZ_CHANNEL_ID:
         #メッセージの内容がポケモン名であるか判定
@@ -543,30 +669,6 @@ async def on_message(message):
                         break
             if not quizMessage.embeds:
                 ub.output_log("ポケモン名が投稿されましたがクイズ投稿が見つかりませんでした")
-
-    # リプライ(reference)に反応
-    elif message.reference is not None:
-        # リプライ先メッセージのキャッシュを取得
-        message.reference.resolved = await message.channel.fetch_message(
-            message.reference.message_id
-        )
-
-        # bot自身へのリプライに反応
-        """if (
-            message.reference.resolved.author == client.user
-            and message.reference.resolved.embeds
-        ):"""
-        if message.reference.resolved.embeds:
-            embedFooterText = message.reference.resolved.embeds[0].footer.text
-            # リプライ先にembedが含まれるかつ未回答のクイズの投稿か
-            if (
-                "No.26 ポケモンクイズ" in embedFooterText
-                and not "(done)" in embedFooterText
-            ):
-                await quiz(embedFooterText.split()[3]).try_response(message)
-
-            else:
-                ub.output_log("botへのリプライは無視されました")
 
 
 # 新規メンバーが参加したときの処理
@@ -882,9 +984,7 @@ async def on_voice_state_update(member, before, after):
     time = datetime.now(ZoneInfo("Asia/Tokyo"))
 
     if os.path.exists(CALLDATA_PATH):
-        call_df = pd.read_csv(CALLDATA_PATH, dtype={"累計参加メンバー": str}).set_index(
-            "チャンネルID"
-        )
+        call_df = pd.read_csv(CALLDATA_PATH, dtype={"累計参加メンバー": str})
     else:
         call_df = pd.DataFrame(
             columns=[
@@ -895,7 +995,8 @@ async def on_voice_state_update(member, before, after):
                 "名前読み上げ",
                 "累計参加メンバー",
             ]
-        ).set_index("チャンネルID")
+        )
+    call_df.set_index("チャンネルID", inplace=True)
 
     if after.channel:
         if member.bot:
@@ -1517,7 +1618,7 @@ class CallPost:  # await CallPost(*,discord.channel,channelID).start(member,time
         if os.path.exists(CALLDATA_PATH):
             self.call_df = pd.read_csv(
                 CALLDATA_PATH, dtype={"累計参加メンバー": str}
-            ).set_index("チャンネルID")
+            ).set_index("チャンネルID",drop=False)
         else:
             self.call_df = pd.DataFrame(
                 columns=[
@@ -1528,7 +1629,7 @@ class CallPost:  # await CallPost(*,discord.channel,channelID).start(member,time
                     "名前読み上げ",
                     "累計参加メンバー",
                 ]
-            ).set_index("チャンネルID")
+            ).set_index("チャンネルID",drop=False)
 
     async def start(
         self, member, time: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))
@@ -1559,33 +1660,27 @@ class CallPost:  # await CallPost(*,discord.channel,channelID).start(member,time
             file=attachedImage[0], embed=startEmbed
         )
 
+        #FutureWarning: In a future version, object-dtype columns with all-bool values will not be included in reductions with bool_only=True. Explicitly cast to bool dtype instead. 
         newBusyData = pd.DataFrame(
-            {
-                "メッセージID": [startMessage.id],
-                "通話開始": [time.strftime("%Y/%m/%d %H:%M:%S")],
-                "タイトル": [defaultTitle],
-                "名前読み上げ": [False],
-                "累計参加メンバー": [member.id],
-            },
+            data=[[self.channel.id,startMessage.id,time.strftime("%Y/%m/%d %H:%M:%S"),defaultTitle,False,member.id]],
             index=[self.channel.id],
-        ).iloc[0]
-
+            columns=["チャンネルID","メッセージID","通話開始","タイトル","名前読み上げ","累計参加メンバー"]
+        ).astype({"名前読み上げ":bool})
         if self.channel.id not in self.call_df.index:
             # appendは使用しない AttributeError: 'DataFrame' object has no attribute 'append'
-            # self.call_df = self.call_df.append(newBusyData)
-            self.call_df = pd.concat(
-                [self.call_df, pd.DataFrame(newBusyData).T], ignore_index=False
-            )
+            self.call_df = pd.concat([self.call_df, newBusyData])
 
         else:
             self.call_df.loc[self.channel.id] = newBusyData
-        self.call_df.to_csv(CALLDATA_PATH)
+            #self.call_df[self.call_df[self.channel.id]] = newBusyData
+            ub.output_log("通話キャッシュを更新しました")
+
+        self.call_df.to_csv(CALLDATA_PATH,index=False)
 
         await self.channel.send(
-            file=attachedImage[0],
             embed=discord.Embed(
                 title="通話開始",
-                description="`/title` 通話目的を変更できます\n`/invite` メンバーを招待できます",
+                description="`/calltitle` 通話目的を変更できます\n`/invite` メンバーを招待できます",
                 color=embedColor,
             ).set_footer(text=time.strftime("%Y/%m/%d %H:%M:%S")),
         )
@@ -1696,9 +1791,11 @@ class CallPost:  # await CallPost(*,discord.channel,channelID).start(member,time
         return True
 
     async def __load(self):
+        #"チャンネルID"列に指定のチャンネルIDがあるか確認 (indexではない)
         if self.channel.id in self.call_df.index:
             try:
                 self.message = await self.sendChannel.fetch_message(
+                    #指定の"チャンネルID"の"メッセージID"を取得
                     self.call_df.loc[self.channel.id, "メッセージID"]
                 )
             except discord.NotFound:
@@ -1713,5 +1810,5 @@ class CallPost:  # await CallPost(*,discord.channel,channelID).start(member,time
 # ===================================================================================================
 # トークンの取得とBOTの起動
 
-load_dotenv()
+load_dotenv(override=True)
 client.run(os.environ.get("DISCORD_TOKEN"), reconnect=True)
