@@ -9,6 +9,19 @@
 
 ## セットアップ手順
 
+- 仮想環境（例: `venv`）の利用を推奨します。
+
+```bash
+# プロジェクトディレクトリに移動
+cd UBSLEEPY
+
+# 仮想環境の作成
+python -m venv venv
+
+# 仮想環境を有効化
+venv\Scripts\activate
+```
+
 ### 1. リポジトリをクローンする
 以下のコマンドを使用してリポジトリをローカル環境にクローンします：
 ```bash
@@ -39,10 +52,9 @@ sudo apt install git
 ```
 
 ### 2. 必要なパッケージをインストールする
-- 仮想環境（例: `venv`）の利用を推奨します。
 
 ```bash
-pip install -r UBSLEEPY/setup/requirements.txt
+pip install --no-cache-dir -r UBSLEEPY/setup/requirements.txt
 ```
 
 ### 3. リソースファイルの配置
