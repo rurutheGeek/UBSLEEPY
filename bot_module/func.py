@@ -13,7 +13,7 @@ import pypinyin
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
-#import japanize_matplotlib
+import japanize_matplotlib
 import discord
 import json
 
@@ -148,57 +148,81 @@ def pinyin_to_text(cw: str) -> str:
   return " ".join(pinyins)
  
 
-def generate_graph(bss: list[int]) -> str:
-  '''種族値グラフを生成する
-  Parameters:
-  ----------
-  bss : list[int]
-  種族値のリスト
-
-  Returns:
-  ----------
-  BSS_GRAPH_PATH : str
-  生成したグラフのパス
-  '''
-  output_log(f"{'-'.join(map(str,bss))}の種族値グラフを生成します")
-  
-  values = [bss[0],bss[1],bss[2],bss[5],bss[4],bss[3]]
-  labels = [f'HP{values[0]}', f'A{values[1]}', f'B{values[2]}', f'S{values[3]}', f'D{values[4]}', f'C{values[5]}']
-  
-  # 多角形を閉じるためにデータの最後に最初の値を追加する。
-  radar_values = np.concatenate([values, [values[0]]])# プロットする角度を生成する。
-  angles = np.linspace(0, 2 * np.pi, len(labels) + 1, endpoint=True)# メモリ軸の生成
-  if max(values)<150:
-    rgrids = [0, 50, 100, 150]
-  else:
-    a=max(values)/2
-    rgrids=[0, a, 2*a]
-  fig = plt.figure(facecolor="cornsilk")# 極座標でaxを作成
-  ax = fig.add_subplot(1, 1, 1, polar=True,facecolor="cornsilk")# レーダーチャートの線を引く
-  ax.plot(angles, radar_values,color="midnightblue",alpha=0.4, linewidth=0.5)#　レーダーチャートの内側を塗りつぶす
-  ax.fill(angles, radar_values, alpha=0.9,color="midnightblue")# 項目ラベルの表示
-  ax.set_thetagrids(angles[:-1] * 180 / np.pi, labels,fontweight="roman")# 円形の目盛線を消す
-  ax.set_rgrids([])# 一番外側の円を消す
-  ax.spines['polar'].set_visible(False)# 始点を上(北)に変更
-  ax.set_theta_zero_location("N")# 時計回りに変更(デフォルトの逆回り)
-  ax.set_theta_direction(-1)# 多角形の目盛線を引く
-  for grid_value in rgrids:
-    grid_values = [grid_value] * (len(labels)+1)
-    ax.plot(angles, grid_values, color="gray",  linewidth=0.5,alpha=0.3)# メモリの値を表示する
-  for t in rgrids:# xが偏角、yが絶対値でテキストの表示場所が指定される
-    ax.text(x=0, y=t, s=t,fontweight="ultralight",alpha=0.1)
-      
-  # rの範囲を指定
-  ax.set_rlim([min(rgrids), max(rgrids)])
-  ax.spines['polar'].set_visible(False)
-  ax.grid(True,alpha=0.1)
-  ax.set_title(f"Total{sum(values)}", pad=20,fontsize=15)
-  plt.tight_layout()
-  fig.savefig(BSS_GRAPH_PATH, bbox_inches='tight')
-  plt.close('all')
-  
-  output_log(f"種族値グラフ生成完了: {BSS_GRAPH_PATH}")
-  return BSS_GRAPH_PATH
+def generate_graph(bss: list[int], name=None) -> str:
+    '''種族値グラフを生成する
+    
+    Parameters:
+    ----------
+    bss : list[int]
+        種族値のリスト
+    name : str, optional
+        グラフに表示する名前
+        
+    Returns:
+    ----------
+    BSS_GRAPH_PATH : str
+        生成したグラフのパス
+    '''
+    output_log(f"{'-'.join(map(str, bss))}の種族値グラフを生成します")
+    
+    # 値の準備
+    values = [bss[0], bss[1], bss[2], bss[5], bss[4], bss[3]]  # HP, A, B, S, D, C の順
+    labels = [f'HP{values[0]}', f'A{values[1]}', f'B{values[2]}', 
+              f'S{values[3]}', f'D{values[4]}', f'C{values[5]}']
+    
+    # レーダーチャートのデータ準備
+    radar_values = np.concatenate([values, [values[0]]])  # 多角形を閉じるため
+    angles = np.linspace(0, 2 * np.pi, len(labels) + 1, endpoint=True)
+    
+    # メモリ軸の設定
+    if max(values) < 150:
+        rgrids = [0, 50, 100, 150]
+    else:
+        a = max(values) / 2
+        rgrids = [0, a, 2 * a]
+    
+    # プロット領域の設定
+    fig = plt.figure(facecolor="cornsilk")
+    ax = fig.add_subplot(1, 1, 1, polar=True, facecolor="cornsilk")
+    
+    # レーダーチャートの描画
+    ax.plot(angles, radar_values, color="midnightblue", alpha=0.4, linewidth=0.5)
+    ax.fill(angles, radar_values, alpha=0.9, color="midnightblue")
+    
+    # チャートの装飾設定
+    ax.set_thetagrids(angles[:-1] * 180 / np.pi, labels, fontweight="roman")
+    ax.set_rgrids([])  # 円形の目盛線を消す
+    ax.spines['polar'].set_visible(False)  # 一番外側の円を消す
+    ax.set_theta_zero_location("N")  # 始点を上(北)に変更
+    ax.set_theta_direction(-1)  # 時計回りに変更
+    
+    # グリッドラインの描画
+    for grid_value in rgrids:
+        grid_values = [grid_value] * (len(labels) + 1)
+        ax.plot(angles, grid_values, color="gray", linewidth=0.5, alpha=0.3)
+    
+    # メモリ値の表示
+    for t in rgrids:
+        ax.text(x=0, y=t, s=t, fontweight="ultralight", alpha=0.1)
+    
+    # グラフの範囲とグリッド設定
+    ax.set_rlim([min(rgrids), max(rgrids)])
+    ax.grid(True, alpha=0.1)
+    
+    # タイトルの設定
+    total_stats = sum(values)
+    if name is not None:
+        ax.set_title(f"{name}\n合計{total_stats}", pad=20, fontsize=15)
+    else:
+        ax.set_title(f"合計{total_stats}", pad=20, fontsize=15)
+    
+    # グラフの保存
+    plt.tight_layout()
+    fig.savefig(BSS_GRAPH_PATH, bbox_inches='tight')
+    plt.close('all')
+    
+    output_log(f"種族値グラフ生成完了: {BSS_GRAPH_PATH}")
+    return BSS_GRAPH_PATH
 
 
 #レポートしたり参照する関数 ユーザーIDとレポのインデックスを渡す modifiは増減値
@@ -370,3 +394,4 @@ def show_senryu(unique: bool = False) -> discord.Embed:
     createdEmbed.set_thumbnail(url=f"{EX_SOURCE_LINK}art/{senryuDexNum}.png")
     
   return createdEmbed
+
