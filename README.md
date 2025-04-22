@@ -14,6 +14,29 @@
 ```bash
 git clone https://github.com/rurutheGeek/UBSLEEPY.git
 ```
+Gitをまだインストールしていない場合は、以下の手順に従ってインストールしてください。
+
+#### Windows
+1. [Git for Windows](https://gitforwindows.org/)の公式サイトにアクセスします。
+2. ダウンロードボタンをクリックして、インストーラーをダウンロードします。
+3. ダウンロードしたインストーラーを実行し、画面の指示に従ってインストールを完了します。
+   - 基本的にはデフォルト設定のままで問題ありません。
+   - インストール完了後、「Git Bash」または「コマンドプロンプト」から`git --version`コマンドを実行して、正常にインストールされたか確認できます。
+
+#### macOS
+1. **Homebrew**を使用する場合:
+   ```bash
+   brew install git
+   ```
+2. **インストーラー**を使用する場合:
+   - [Git公式サイト](https://git-scm.com/download/mac)からインストーラーをダウンロードして実行します。
+3. インストール完了後、ターミナルで`git --version`コマンドを実行して確認します。
+
+#### Linux (Ubuntu/Debian)
+```bash
+sudo apt update
+sudo apt install git
+```
 
 ### 2. 必要なパッケージをインストールする
 - 仮想環境（例: `venv`）の利用を推奨します。
