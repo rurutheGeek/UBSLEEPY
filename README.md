@@ -54,7 +54,7 @@ sudo apt install git
 ### 2. 必要なパッケージをインストールする
 
 ```bash
-pip install --no-cache-dir -r UBSLEEPY/setup/requirements.txt
+pip install --no-cache-dir -r ./setup/requirements.txt
 ```
 
 ### 3. リソースファイルの配置
@@ -65,7 +65,7 @@ pip install --no-cache-dir -r UBSLEEPY/setup/requirements.txt
 ### 4. Botを起動する
 以下のコマンドから選択して、Botを起動します：
 
-#### Linux/macOS
+#### Windows/macOS/Linux
 ```bash
 python main.py
 ```
