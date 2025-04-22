@@ -237,8 +237,9 @@ async def display_pokedex(interaction, name, message=None):
         # 種族値グラフの生成と設定
         bss = [dexH, dexA, dexB, dexC, dexD, dexS]
         graph_path = ub.generate_graph(bss=bss, name=dexName)
-        attach_graph = discord.File(graph_path, filename="bss_graph.png")
-        dexEmbed.set_image(url="attachment://bss_graph.png")
+        filename = f"basestats_{dexNumber}_{jaconv.kata2alphabet(jaconv.hira2kata(dexName)).lower()}.png"
+        attach_graph = discord.File(graph_path, filename=filename)
+        dexEmbed.set_image(url=f"attachment://{filename}")
         
         dexEmbed.set_footer(text=f'No.25 ポケモン図鑑 - {dexNumber}')
         
@@ -338,103 +339,155 @@ async def display_pokedex(interaction, name, message=None):
             await message.edit(embed=ub_embed.error_404(name), attachments=[], view=None)
                
         
-@tree.command(name="comp", description="2匹のポケモンの種族値を比較します")
+
+@tree.command(name="comp", description="2~6匹のポケモンの種族値を比較します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 @discord.app_commands.describe(
     pokemon1="1匹目のポケモン",
-    pokemon2="2匹目のポケモン"
+    pokemon2="2匹目のポケモン",
+    pokemon3="3匹目のポケモン (任意)",
+    pokemon4="4匹目のポケモン (任意)",
+    pokemon5="5匹目のポケモン (任意)",
+    pokemon6="6匹目のポケモン (任意)"
 )
-async def slash_comp(interaction: discord.Interaction, pokemon1: str, pokemon2: str):
-    ub.output_log(f"ポケモンの種族値を比較します: {pokemon1} / {pokemon2}")
-    # ポケモンデータの取得
-    poke_data1 = ub.fetch_pokemon(pokemon1)
-    poke_data2 = ub.fetch_pokemon(pokemon2)
+async def slash_comp(
+    interaction: discord.Interaction, 
+    pokemon1: str, 
+    pokemon2: str, 
+    pokemon3: str = None, 
+    pokemon4: str = None, 
+    pokemon5: str = None, 
+    pokemon6: str = None
+):
+    # まず応答を遅延させる - これによりタイムアウトを防ぐ
+    await interaction.response.defer()
+    # 入力された全ポケモン名を配列にまとめる
+    pokemon_names = [name for name in [pokemon1, pokemon2, pokemon3, pokemon4, pokemon5, pokemon6] if name]
+    
+    # ログメッセージの作成
+    log_message = "ポケモンの種族値を比較します: " + " / ".join(pokemon_names)
+    ub.output_log(log_message)
+    
+    # 各ポケモンのデータとBSSを格納する辞書
+    pokemon_data = {}
+    dexnum_list = []
+    # 全ポケモンのデータ取得
+    for name in pokemon_names:
+        poke_data = ub.fetch_pokemon(name)
+        if poke_data is None:
+            ub.output_log(f"404 NotFound: {name}")
+            await interaction.followup.send(embed=ub_embed.error_404(name))
+            return
+        
+        poke_name = poke_data.iloc[0]['おなまえ']
+        bss = [
+            int(poke_data.iloc[0]['HP']),
+            int(poke_data.iloc[0]['こうげき']),
+            int(poke_data.iloc[0]['ぼうぎょ']),
+            int(poke_data.iloc[0]['とくこう']),
+            int(poke_data.iloc[0]['とくぼう']),
+            int(poke_data.iloc[0]['すばやさ'])
+        ]
+        
+        dexnum = poke_data.iloc[0]['ぜんこくずかんナンバー']
+        dexnum_list.append(dexnum)
 
-    if poke_data1 is None or poke_data2 is None:
-        error_message = f"{pokemon1 if poke_data1 is None else pokemon2} のデータが見つかりませんでした"
-        await interaction.response.send_message(content=error_message, ephemeral=True)
-        return
-
-    poke1_name = poke_data1.iloc[0]['おなまえ']
-    poke2_name = poke_data2.iloc[0]['おなまえ']
-
-    # 種族値データの取得
-    bss1 = [
-        int(poke_data1.iloc[0]['HP']),
-        int(poke_data1.iloc[0]['こうげき']),
-        int(poke_data1.iloc[0]['ぼうぎょ']),
-        int(poke_data1.iloc[0]['とくこう']),
-        int(poke_data1.iloc[0]['とくぼう']),
-        int(poke_data1.iloc[0]['すばやさ'])
-    ]
-
-    bss2 = [
-        int(poke_data2.iloc[0]['HP']),
-        int(poke_data2.iloc[0]['こうげき']),
-        int(poke_data2.iloc[0]['ぼうぎょ']),
-        int(poke_data2.iloc[0]['とくこう']),
-        int(poke_data2.iloc[0]['とくぼう']),
-        int(poke_data2.iloc[0]['すばやさ'])
-    ]
-
-    # グラフの生成と合成
-    temp1_path = "save/temp1.png"
-    temp2_path = "save/temp2.png"
+        pokemon_data[poke_name] = {
+            'bss': bss,
+            'data': poke_data
+        }
+    
+    # 一時ファイルのパスを用意
+    temp_paths = [f"save/temp{i}.png" for i in range(len(pokemon_data))]
     combined_img_path = "save/compared_graph.png"
-
-    graph1_path = ub.generate_graph(bss=bss1, name=poke1_name)
-    img1 = Image.open(graph1_path)
-    img1.save(temp1_path)
-    img1.close()
-    img1 = Image.open(temp1_path)
-
-    graph2_path = ub.generate_graph(bss=bss2, name=poke2_name)
-    img2 = Image.open(graph2_path)
-    img2.save(temp2_path)
-    img2.close()
-    img2 = Image.open(temp2_path)
-
-    # 画像を横に並べる
-    combined_img = Image.new('RGB', (img1.width + img2.width, max(img1.height, img2.height)))
-    combined_img.paste(img1, (0, 0))
-    combined_img.paste(img2, (img1.width, 0))
+    
+    # 各ポケモンのグラフを生成
+    images = []
+    for i, (name, data) in enumerate(pokemon_data.items()):
+        graph_path = ub.generate_graph(bss=data['bss'], name=name)
+        img = Image.open(graph_path)
+        img.save(temp_paths[i])
+        img.close()
+        img = Image.open(temp_paths[i])
+        images.append(img)
+    
+    # 画像の合成方法を決定
+    if len(images) <= 3:
+        # 3枚以下なら横に並べる
+        width = sum(img.width for img in images)
+        height = max(img.height for img in images)
+        combined_img = Image.new('RGB', (width, height), color=(255, 250, 227))
+        x_offset = 0
+        for img in images:
+            combined_img.paste(img, (x_offset, 0))
+            x_offset += img.width
+    else:
+        # 4-6枚の場合はグリッドレイアウトを使用
+        rows = 2
+        cols = (len(images) + 1) // 2  # 切り上げの除算で列数を計算
+        
+        # 1つの画像のサイズを取得
+        img_width = images[0].width
+        img_height = images[0].height
+        
+        # 合成画像のサイズを計算
+        combined_width = img_width * cols
+        combined_height = img_height * rows
+        
+        # 新しい画像を作成（背景色を設定）
+        combined_img = Image.new('RGB', (combined_width, combined_height), color=(255, 250, 227))  # cornsilk色に近い背景色
+        
+        # 画像を配置
+        for i, img in enumerate(images):
+            row = i // cols
+            col = i % cols
+            x_offset = col * img_width
+            y_offset = row * img_height
+            combined_img.paste(img, (x_offset, y_offset))
+    
     # 画像を閉じる
-    img1.close()
-    img2.close()
-    os.remove(temp1_path)
-    os.remove(temp2_path)
-
-    # 保存する
+    for img in images:
+        img.close()
+    
+    # 一時ファイルを削除
+    for path in temp_paths:
+        os.remove(path)
+    
+    # 合成画像を保存
     combined_img.save(combined_img_path)
     combined_img.close()
-
+    
     # グラフ画像をdiscordに添付する
-    attach_image = discord.File(combined_img_path, filename="compared_graph.png")
-
+    #dexnumでファイル名を指定
+    filename=f"compared_{'_'.join(dexnum_list)}.png"
+    attach_image = discord.File(combined_img_path, filename=filename)
+    
     # Embedの作成
+    title_text = " と ".join([f"**{name}**" for name in pokemon_data.keys()])
     embed = discord.Embed(
-        title=f"**{poke1_name}** と **{poke2_name}** の種族値を比較",
+        title=f"{title_text} の種族値を比較",
         color=0x00BFFF
     )
-    embed.add_field(
-        name=f"{poke1_name}",
-        value=f"{bss1[0]}-{bss1[1]}-{bss1[2]}-{bss1[3]}-{bss1[4]}-{bss1[5]} 合計{sum(bss1)}",
-        inline=True
-    )
-    embed.add_field(
-        name=f"{poke2_name}",
-        value=f"{bss2[0]}-{bss2[1]}-{bss2[2]}-{bss2[3]}-{bss2[4]}-{bss2[5]} 合計{sum(bss2)}",
-        inline=True
-    )
-    embed.set_image(url="attachment://compared_graph.png")
-    # embed.set_footer(text="種族値を比較")
-
-    # メッセージ送信
-    await interaction.response.send_message(
+    
+    # 各ポケモンの種族値情報をフィールドとして追加
+    for name, data in pokemon_data.items():
+        bss = data['bss']
+        embed.add_field(
+            name=f"{name}",
+            value=f"{bss[0]}-{bss[1]}-{bss[2]}-{bss[3]}-{bss[4]}-{bss[5]} 合計{sum(bss)}",
+            inline=True
+        )
+    
+    # 合成画像をEmbedに設定
+    embed.set_image(url=f"attachment://{filename}")
+    embed.set_footer(text=f"{len(pokemon_data)}匹のポケモンを比較")
+    
+    # メッセージ送信（defer()を使用しているため、followup.sendを使用）
+    await interaction.followup.send(
         files=[attach_image],
         embed=embed
     )
-
+    
 
 @tree.command(name="q", description="現在の出題設定に基づいてクイズを出題します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
