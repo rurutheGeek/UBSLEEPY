@@ -22,8 +22,8 @@
 #### 2. インストーラーの実行
 
 1. ダウンロードしたインストーラー（例：`python-3.11.0-amd64.exe`）をダブルクリックして実行します. 
-2. インストール画面が表示されたら, 必ず以下のオプションにチェックを入れてください：
-   * ✅ **Add Python 3.x to PATH**（これは非常に重要です）
+2. インストール画面が表示されたら, 以下のオプションにチェックを入れてください：
+   * ✅ **Add Python 3.x to PATH**
    * ✅ **Install launcher for all users (recommended)**
 #### 3. インストールの確認
 
@@ -41,7 +41,7 @@ python --version
 py --version
 ```
 
-バージョン情報（例：`Python 3.11.0`）が表示されればインストール成功です. 
+バージョン情報（例：`Python 3.11.0`）が表示されればインストール成功です. **特定のバージョンのPythonからコマンドがpythonの代わりにpyしか使えないことがあるようです. pythonコマンドに問題がある場合, pyコマンドを試してください. **
    
 - 仮想環境（例: `venv`）の利用を推奨します. 
 
@@ -123,21 +123,19 @@ pip install --no-cache-dir -r ./setup/requirements.txt
 ```
 
 ### 3. リソースファイルの配置
+- main.py 以上の階層に以下のファイルを配置してください：
+  - 必須:  `.env`
+```.env
+DISCORD_TOKEN=ここにDiscordBotのトークン
+```
 - resource ディレクトリに以下のファイルを配置してください：
   - 必須: `pokemon_database.csv`
-  - オプション: `pokemon_senryu.csv` や `pokemon_calendar.csv`（必要に応じて配置）. 
+  - オプション: `pokemon_senryu.csv` や `pokemon_calendar.csv`（データを使用する場合は配置）. 
 
 ### 4. Botを起動する
-以下のコマンドから選択して, Botを起動します：
-
-#### Windows/macOS/Linux
+以下のコマンドで, Botを起動します：
 ```bash
 python main.py
-```
-
-#### Windows（Python Launcherを使用）
-```bash
-py main.py
 ```
 
 ---
@@ -172,7 +170,7 @@ py main.py
 ## 動作環境
 
 - **Python バージョン**: 3.9以上を推奨. 
-- 必要なパッケージは `requirements.txt` に記載されています. 
+- 必要なPythonパッケージは `requirements.txt` に記載されています. 
 
 ---
 
@@ -184,7 +182,7 @@ Botの具体的なコマンドや使い方については, ドキュメントや
 
 ## 貢献
 
-このプロジェクトへの貢献は歓迎されています！  
+このプロジェクトへの貢献は歓迎されています.  
 バグ報告や新機能の提案など, [Issues](https://github.com/rurutheGeek/UBSLEEPY/issues) や [Pull Requests](https://github.com/rurutheGeek/UBSLEEPY/pulls) を通じてご参加ください. 
 
 ---
