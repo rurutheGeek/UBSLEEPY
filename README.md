@@ -41,7 +41,8 @@ python --version
 py --version
 ```
 
-バージョン情報（例：`Python 3.11.0`）が表示されればインストール成功です. **特定のバージョンのPythonからコマンドがpythonの代わりにpyしか使えないことがあるようです. pythonコマンドに問題がある場合, pyコマンドを試してください. **
+バージョン情報（例：`Python 3.11.0`）が表示されればインストール成功です.  
+**特定のバージョンのPythonからコマンドがpythonの代わりにpyしか使えないことがあるようです. pythonコマンドに問題がある場合, pyコマンドを試してください. **  
    
 - 仮想環境（例: `venv`）の利用を推奨します. 
 
@@ -123,7 +124,7 @@ pip install --no-cache-dir -r ./setup/requirements.txt
 ```
 
 ### 3. リソースファイルの配置
-- main.py 以上の階層に以下のファイルを配置してください：
+- main.py 以上の階層に以下のファイルを作成してください：
   - 必須:  `.env`
 ```.env
 DISCORD_TOKEN=ここにDiscordBotのトークン
