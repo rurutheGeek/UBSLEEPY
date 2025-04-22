@@ -118,17 +118,17 @@ def error_401(inputId: int) -> discord.Embed:
 
 def error_404(name: str) -> discord.Embed:
     # JSONファイルを読み込みます
-    with open("error_template.json", "r") as template_file:
+    with open("document/error_embeds.json", "r", encoding="utf-8") as template_file:
         template_data = json.load(template_file)
 
+    error_data = template_data["error_404"]
+    
     # テンプレート内の変数 {name} を実際の値に置換
-    template_data["description"] = template_data["description"].format(name=name)
-    template_data["thumbnail"]["url"] = template_data["thumbnail"]["url"].format(
-        EX_SOURCE_LINK=EX_SOURCE_LINK
-    )
-
+    error_data["description"] = error_data["description"].format(name=name)
+    error_data["thumbnail"]["url"] = error_data["thumbnail"]["url"].format(EX_SOURCE_LINK=EX_SOURCE_LINK)
+    
     # discord.Embedのfrom_dictメソッドを使用してEmbedを生成
-    embed = discord.Embed.from_dict(template_data)
+    embed = discord.Embed.from_dict(error_data)
 
     return embed
 
