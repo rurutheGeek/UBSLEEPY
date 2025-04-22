@@ -70,168 +70,28 @@ async def on_ready():
         daily_bonus.start()
 
     # 時報の投稿済みチェック (5時以降の起動で)
-    now = datetime.now(ZoneInfo("Asia/Tokyo"))
-    if now.hour >= 5:
-        dairyChannel = client.get_channel(DAIRY_CHANNEL_ID)
-        timeSignal = False
-        async for message in dairyChannel.history(limit=3):
-            if (
-                message.author == client.user
-                and now.strftime("%Y/%m/%d") in message.content
-            ):
-                timeSignal = True
-                break
+    dairyChannel = client.get_channel(DAIRY_CHANNEL_ID)
+    if dairyChannel is not None:
+        now = datetime.now(ZoneInfo("Asia/Tokyo"))
+        if now.hour >= 5:
+            timeSignal = False
+            async for message in dairyChannel.history(limit=3):
+                if (
+                    message.author == client.user
+                    and now.strftime("%Y/%m/%d") in message.content
+                ):
+                    timeSignal = True
+                    break
 
-        if not timeSignal:
-            ub.output_log("本日の時報が未投稿のようです.時報の投稿を試みます")
-            await daily_bonus(now.replace(hour=5, minute=0, second=0, microsecond=0))
+            if not timeSignal:
+                ub.output_log("本日の時報が未投稿のようです.時報の投稿を試みます")
+                await daily_bonus(now.replace(hour=5, minute=0, second=0, microsecond=0))
 
         ub.output_log("botが起動しました")
         
 # ===================================================================================================
 # テスト処理
-@tree.command(name="dex", description="ポケモンの図鑑データを表示します")
-@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
-@discord.app_commands.describe(name="表示したいポケモンのおなまえ")
-async def slash_dex(interaction: discord.Interaction, name: str):
-    ub.output_log("図鑑を実行します")
-    await display_pokedex(interaction, name)
 
-# ポケモン図鑑表示の共通関数
-async def display_pokedex(interaction, name, message=None):
-    """ポケモンの図鑑データを表示する共通関数
-    
-    Parameters:
-    ----------
-    interaction : discord.Interaction
-        インタラクションオブジェクト
-    name : str
-        表示するポケモン名
-    message : discord.Message, optional
-        更新する既存のメッセージ（ボタン操作時）
-    """
-    if (pokedata := ub.fetch_pokemon(name)) is not None:  # データが存在する場合は、図鑑データを返信
-        pokedata = pokedata.fillna(" ")
-        dexNumber = pokedata.iloc[0]['ぜんこくずかんナンバー']
-        dexName = str(pokedata.iloc[0]['おなまえ'])
-        dexIndexs = [pokedata.iloc[0]['インデックス1'], pokedata.iloc[0]['インデックス2'], pokedata.iloc[0]['インデックス3']]
-        dexType1 = str(pokedata.iloc[0]['タイプ1'])
-        dexType2 = str(pokedata.iloc[0]['タイプ2'])
-        dexAbi1 = str(pokedata.iloc[0]['特性1'])
-        dexAbi2 = str(pokedata.iloc[0]['特性2'])
-        dexAbiH = str(pokedata.iloc[0]['隠れ特性'])
-        dexH = int(pokedata.iloc[0]['HP'])
-        dexA = int(pokedata.iloc[0]['こうげき'])
-        dexB = int(pokedata.iloc[0]['ぼうぎょ'])
-        dexC = int(pokedata.iloc[0]['とくこう'])
-        dexD = int(pokedata.iloc[0]['とくぼう'])
-        dexS = int(pokedata.iloc[0]['すばやさ'])
-        dexSum = int(pokedata.iloc[0]['合計'])
-        dexGen = str(pokedata.iloc[0]['初登場作品'])
-        
-        # Embed作成
-        dexEmbed = discord.Embed(
-            title=f'{BALL_ICON}{dexName}の図鑑データ{BALL_ICON}',
-            color=TYPE_COLOR_DICT.get(dexType1, 0xdcdcdc),
-            description=f'''No.{dexNumber} {dexName} 出身: {dexGen}
-タイプ: {dexType1}/{dexType2}
-とくせい: {dexAbi1}/{dexAbi2}/{dexAbiH}
-```
-┌───┬───┬───┬───┬───┬───┰───┐
-│ H │ A │ B │ C │ D │ S ┃Tot│
-├───┼───┼───┼───┼───┼───╂───┤
-│{dexH:3}-{dexA:3}-{dexB:3}-{dexC:3}-{dexD:3}-{dexS:3} {dexSum:3}│
-└───┴───┴───┴───┴───┴───┸───┘
-```
-      ''',
-            url=f'https://yakkun.com/sv/zukan/n{dexNumber}'
-        )
-        
-        # サムネイル設定
-        dexEmbed.set_thumbnail(url=f'{EX_SOURCE_LINK}art/{dexNumber}.png')
-        
-        # インデックス情報の追加
-        indexCount = 0
-        for dexIndex in dexIndexs:
-            if not dexIndex == " ":
-                dexEmbed.add_field(name="INDEX", value=dexIndex)
-                indexCount += 1
-        if indexCount > 0:
-            dexEmbed.fields[indexCount-1].inline = False
-        
-        # 種族値グラフの生成と設定
-        bss = [dexH, dexA, dexB, dexC, dexD, dexS]
-        graph_path = ub.generate_graph(bss)
-        attach_graph = discord.File(graph_path, filename="bss_graph.png")
-        dexEmbed.set_image(url="attachment://bss_graph.png")
-        
-        dexEmbed.set_footer(text=f'No.25 ポケモン図鑑 - {dexNumber}')
-        
-        current_dex_num = int(float(dexNumber))
-        prev_dex_num = str(current_dex_num - 1)
-        next_dex_num = str(current_dex_num + 1)
-
-        # GLOBAL_BRELOOM_DFから一度のクエリで前後のポケモンを取得
-        adjacent_pokemon = GLOBAL_BRELOOM_DF[
-            GLOBAL_BRELOOM_DF["ぜんこくずかんナンバー"].isin([prev_dex_num, next_dex_num])
-        ]
-
-        # 前後のポケモンの存在確認と名前取得
-        has_prev = False
-        has_next = False
-        prev_name = ""
-        next_name = ""
-
-        if not adjacent_pokemon.empty:
-            for _, row in adjacent_pokemon.iterrows():
-                if row["ぜんこくずかんナンバー"] == prev_dex_num:
-                    has_prev = True
-                    prev_name = row["おなまえ"]
-                elif row["ぜんこくずかんナンバー"] == next_dex_num:
-                    has_next = True
-                    next_name = row["おなまえ"]
-
-        # ナビゲーションボタンを持つViewの作成（タイムアウトなし）
-        dex_view = discord.ui.View()
-
-        # 前のポケモンへのボタン
-        prev_button = discord.ui.Button(
-            style=discord.ButtonStyle.primary,
-            emoji="◀",
-            label=prev_name,
-            custom_id=f"dex_prev:{dexNumber}",
-            disabled=not has_prev
-        )
-        dex_view.add_item(prev_button)
-
-        # 次のポケモンへのボタン
-        next_button = discord.ui.Button(
-            style=discord.ButtonStyle.primary,
-            emoji="▶",
-            label=next_name,
-            custom_id=f"dex_next:{dexNumber}",
-            disabled=not has_next
-        )
-        dex_view.add_item(next_button)
-        # 新規メッセージか既存メッセージの更新か
-        if message is None:
-            # 新規メッセージ
-            await interaction.response.send_message(files=[attach_graph], embed=dexEmbed, view=dex_view)
-        else:
-            # 既存メッセージの更新
-            try:
-                await message.edit(attachments=[attach_graph], embed=dexEmbed, view=dex_view)
-            except discord.HTTPException:
-                # エラーが発生した場合は新規メッセージとして送信
-                channel = message.channel
-                await channel.send(files=[attach_graph], embed=dexEmbed, view=dex_view)
-    
-    else:  # データが存在しない場合は、エラーメッセージを返信
-        ub.output_log("404 NotFound")
-        if message is None:
-            await interaction.response.send_message(embed=ub_embed.error_404(name))
-        else:
-            await message.edit(embed=ub_embed.error_404(name), attachments=[], view=None)
 
 
 # ===================================================================================================
@@ -299,7 +159,184 @@ async def daily_bonus(now: datetime = None, channelid: int = DAIRY_CHANNEL_ID):
 
 # ===================================================================================================
 # スラッシュコマンド
+
+@tree.command(name="dex", description="ポケモンの図鑑データを表示します")
+@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
+@discord.app_commands.describe(name="表示したいポケモンのおなまえ")
+async def slash_dex(interaction: discord.Interaction, name: str):
+    ub.output_log("図鑑を実行します")
+    await display_pokedex(interaction, name)
+
+# ポケモン図鑑表示の共通関数
+async def display_pokedex(interaction, name, message=None):
+    """ポケモンの図鑑データを表示する共通関数
+    
+    Parameters:
+    ----------
+    interaction : discord.Interaction
+        インタラクションオブジェクト
+    name : str
+        表示するポケモン名
+    message : discord.Message, optional
+        更新する既存のメッセージ（ボタン操作時）
+    """
+    if (pokedata := ub.fetch_pokemon(name)) is not None:  # データが存在する場合は、図鑑データを返信
+        pokedata = pokedata.fillna(" ")
+        dexNumber = pokedata.iloc[0]['ぜんこくずかんナンバー']
+        dexName = str(pokedata.iloc[0]['おなまえ'])
+        dexIndexs = [pokedata.iloc[0]['インデックス1'], pokedata.iloc[0]['インデックス2'], pokedata.iloc[0]['インデックス3']]
+        dexType1 = str(pokedata.iloc[0]['タイプ1'])
+        dexType2 = str(pokedata.iloc[0]['タイプ2'])
+        dexAbi1 = str(pokedata.iloc[0]['特性1'])
+        dexAbi2 = str(pokedata.iloc[0]['特性2'])
+        dexAbiH = str(pokedata.iloc[0]['隠れ特性'])
+        dexH = int(pokedata.iloc[0]['HP'])
+        dexA = int(pokedata.iloc[0]['こうげき'])
+        dexB = int(pokedata.iloc[0]['ぼうぎょ'])
+        dexC = int(pokedata.iloc[0]['とくこう'])
+        dexD = int(pokedata.iloc[0]['とくぼう'])
+        dexS = int(pokedata.iloc[0]['すばやさ'])
+        dexSum = int(pokedata.iloc[0]['合計'])
+        dexGen = str(pokedata.iloc[0]['初登場作品'])
         
+        emoji = "🔴"
+        
+        # Embed作成
+        dexEmbed = discord.Embed(
+            title=f'{emoji}{dexName}の図鑑データ{emoji}',
+            color=TYPE_COLOR_DICT.get(dexType1, 0xdcdcdc),
+            description=f'''No.{dexNumber} {dexName} 出身: {dexGen}
+タイプ: {dexType1}/{dexType2}
+とくせい: {dexAbi1}/{dexAbi2}/{dexAbiH}
+```
+┌───┬───┬───┬───┬───┬───┰───┐
+│ H │ A │ B │ C │ D │ S ┃Tot│
+├───┼───┼───┼───┼───┼───╂───┤
+│{dexH:3}-{dexA:3}-{dexB:3}-{dexC:3}-{dexD:3}-{dexS:3} {dexSum:3}│
+└───┴───┴───┴───┴───┴───┸───┘
+```
+      ''',
+            url=f'https://yakkun.com/sv/zukan/n{dexNumber}'
+        )
+        
+        # サムネイル設定
+        dexEmbed.set_thumbnail(url=f'{EX_SOURCE_LINK}art/{dexNumber}.png')
+        
+        # インデックス情報の追加
+        aliases = []
+        for dexIndex in dexIndexs:
+            if not dexIndex == " ":
+                aliases.append(str(dexIndex))
+
+        # 別名フィールドを追加
+        if aliases:
+            dexEmbed.add_field(name="登録済の別名", value=", ".join(aliases), inline=False)
+        else:
+            dexEmbed.add_field(name="登録済の別名", value="なし", inline=False)
+
+        # 種族値グラフの生成と設定
+        bss = [dexH, dexA, dexB, dexC, dexD, dexS]
+        graph_path = ub.generate_graph(bss=bss, name=dexName)
+        attach_graph = discord.File(graph_path, filename="bss_graph.png")
+        dexEmbed.set_image(url="attachment://bss_graph.png")
+        
+        dexEmbed.set_footer(text=f'No.25 ポケモン図鑑 - {dexNumber}')
+        
+        current_dex_num = float(dexNumber)
+        base_dex_num = int(current_dex_num)  # 小数点以下を切り捨てて基本図鑑番号を取得
+        prev_dex_num = str(base_dex_num - 1)
+        next_dex_num = str(base_dex_num + 1)
+
+
+        # ナビゲーションボタンを持つViewの作成
+        dex_view = discord.ui.View()
+
+        # 同じ基本図鑑番号を持つポケモン（姿違い）を検索
+        # 例: 58.0, 58.1 など同じ基本図鑑番号を持つポケモン
+        form_pattern = f'^{base_dex_num}(\\.\\d+)?$'
+        form_variants = GLOBAL_BRELOOM_DF[
+            GLOBAL_BRELOOM_DF["ぜんこくずかんナンバー"].str.match(form_pattern)
+        ]
+        
+        # 姿違いの選択肢がある場合はセレクトメニューを用意
+        has_variants = len(form_variants) > 1
+
+        # 姿違いセレクトメニューの追加（姿違いがある場合のみ）
+        if has_variants:
+            # 選択肢の作成
+            form_select = discord.ui.Select(
+                placeholder="姿違いを選択",
+                custom_id=f"dex_form:{base_dex_num}",
+                options=[
+                    discord.SelectOption(
+                        label=row["おなまえ"],
+                        value=row["ぜんこくずかんナンバー"],
+                        default=row["ぜんこくずかんナンバー"] == dexNumber
+                    ) for _, row in form_variants.iterrows()
+                ]
+            )
+            dex_view.add_item(form_select)
+
+        # GLOBAL_BRELOOM_DFから一度のクエリで前後のポケモンを取得
+        adjacent_pokemon = GLOBAL_BRELOOM_DF[
+            GLOBAL_BRELOOM_DF["ぜんこくずかんナンバー"].isin([prev_dex_num, next_dex_num])
+        ]
+
+        # 前後のポケモンの存在確認と名前取得
+        has_prev = False
+        has_next = False
+        prev_name = ""
+        next_name = ""
+
+        if not adjacent_pokemon.empty:
+            for _, row in adjacent_pokemon.iterrows():
+                if row["ぜんこくずかんナンバー"] == prev_dex_num:
+                    has_prev = True
+                    prev_name = row["おなまえ"]
+                elif row["ぜんこくずかんナンバー"] == next_dex_num:
+                    has_next = True
+                    next_name = row["おなまえ"]
+
+        # 前のポケモンへのボタン
+        prev_button = discord.ui.Button(
+            style=discord.ButtonStyle.primary,
+            emoji="◀",
+            label=prev_name,
+            custom_id=f"dex_prev:{dexNumber}",
+            disabled=not has_prev
+        )
+        dex_view.add_item(prev_button)
+
+        # 次のポケモンへのボタン
+        next_button = discord.ui.Button(
+            style=discord.ButtonStyle.primary,
+            emoji="▶",
+            label=next_name,
+            custom_id=f"dex_next:{dexNumber}",
+            disabled=not has_next
+        )
+        dex_view.add_item(next_button)
+            
+        # 新規メッセージか既存メッセージの更新か
+        if message is None:
+            # 新規メッセージ
+            await interaction.response.send_message(files=[attach_graph], embed=dexEmbed, view=dex_view)
+        else:
+            # 既存メッセージの更新
+            try:
+                await message.edit(attachments=[attach_graph], embed=dexEmbed, view=dex_view)
+            except discord.HTTPException:
+                # エラーが発生した場合は新規メッセージとして送信
+                channel = message.channel
+                await channel.send(files=[attach_graph], embed=dexEmbed, view=dex_view)
+    
+    else:  # データが存在しない場合は、エラーメッセージを返信
+        ub.output_log("404 NotFound")
+        if message is None:
+            await interaction.response.send_message(embed=ub_embed.error_404(name))
+        else:
+            await message.edit(embed=ub_embed.error_404(name), attachments=[], view=None)
+               
         
 @tree.command(name="comp", description="2匹のポケモンの種族値を比較します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
@@ -308,6 +345,7 @@ async def daily_bonus(now: datetime = None, channelid: int = DAIRY_CHANNEL_ID):
     pokemon2="2匹目のポケモン"
 )
 async def slash_comp(interaction: discord.Interaction, pokemon1: str, pokemon2: str):
+    ub.output_log(f"ポケモンの種族値を比較します: {pokemon1} / {pokemon2}")
     # ポケモンデータの取得
     poke_data1 = ub.fetch_pokemon(pokemon1)
     poke_data2 = ub.fetch_pokemon(pokemon2)
@@ -344,13 +382,13 @@ async def slash_comp(interaction: discord.Interaction, pokemon1: str, pokemon2: 
     temp2_path = "save/temp2.png"
     combined_img_path = "save/compared_graph.png"
 
-    graph1_path = ub.generate_graph(bss1)
+    graph1_path = ub.generate_graph(bss=bss1, name=poke1_name)
     img1 = Image.open(graph1_path)
     img1.save(temp1_path)
     img1.close()
     img1 = Image.open(temp1_path)
 
-    graph2_path = ub.generate_graph(bss2)
+    graph2_path = ub.generate_graph(bss=bss2, name=poke2_name)
     img2 = Image.open(graph2_path)
     img2.save(temp2_path)
     img2.close()
@@ -980,7 +1018,7 @@ async def on_interaction(interaction: discord.Interaction):
                 inline=False,
             )
             await interaction.response.send_message(embed=errorEmbed, ephemeral=True)
-
+    #ボタン
     elif (
         "component_type" in interaction.data and interaction.data["component_type"] == 2
     ):
@@ -988,6 +1026,29 @@ async def on_interaction(interaction: discord.Interaction):
             f'buttonが押されました\n {interaction.user.name}: {interaction.data["custom_id"]}'
         )
         await on_button_click(interaction)
+
+    #セレクトメニュー    
+    elif "component_type" in interaction.data and interaction.data["component_type"] == 3:
+        custom_id = interaction.data[
+            "custom_id"
+        ]  # custom_id(インタラクションの識別子)を取り出す
+        if custom_id.startswith("dex_form:"):
+            base_dex_num = custom_id.split(":")[1]
+            selected_form = interaction.data["values"][0]  # 選択された姿違いの図鑑番号
+            
+            # 選択された姿違いのポケモンデータを取得
+            form_data = GLOBAL_BRELOOM_DF[GLOBAL_BRELOOM_DF["ぜんこくずかんナンバー"] == selected_form]
+            
+            if not form_data.empty:
+                selected_name = form_data.iloc[0]["おなまえ"]
+                
+                # 応答を延期
+                await interaction.response.defer()
+                
+                # 共通関数を使用して表示
+                await display_pokedex(interaction, selected_name, interaction.message)
+            else:
+                await interaction.response.send_message("該当するポケモンが見つかりませんでした", ephemeral=True)
 
 
 async def on_button_click(interaction: discord.Interaction):
@@ -1120,7 +1181,7 @@ async def on_button_click(interaction: discord.Interaction):
             )
 
     # ポケモン図鑑のナビゲーションボタン処理
-    if custom_id.startswith("dex_prev:") or custom_id.startswith("dex_next:"):
+    elif custom_id.startswith("dex_prev:") or custom_id.startswith("dex_next:"):
         current_number = custom_id.split(":")[1]
         
         if custom_id.startswith("dex_prev:"):
@@ -1143,7 +1204,8 @@ async def on_button_click(interaction: discord.Interaction):
             await display_pokedex(interaction, target_name, interaction.message)
         else:
             await interaction.response.send_message("該当するポケモンが見つかりませんでした", ephemeral=True)
-    
+
+
 # ボイスチャンネルへの参加・退出を検知
 @client.event
 async def on_voice_state_update(member, before, after):
