@@ -10,3 +10,21 @@
 ヒントをリプライした場合は未表示のヒントからランダムで表示
 ・`["ギブ","ギブアップ","降参","敗北"]のうちどれか`(クイズ投稿に返信) 
 種族値クイズの正解を表示する
+
+readmeを更新して.
+main.pyは local_update.pyに,作ったドライブ連携コードは remote_update.pyという名前にする
+2つの使い方ができることを書いて.
+remote_update.pyを使うときは以下の内容の
+{
+  "type": "service_account",
+  "project_id": "pokemon-database-update",
+  "private_key_id": "6cf8d4f62c97211226f2f0c5dc2cb47dccf162bb",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDN+tg5vsIGwbOd\nww85ksIxNsyFagPQjdUBssZ52fL+GFe4+EQebYQnjSma5SKxnKylqYnnD1nskuNH\n7HAnO6lBaKKdDGzgyzAc6UDjOH/gUB5gPSmsF0oSfUmjHuJpS/7gdnj/C8AOs87T\ncYRVRxhoF1QYW+d27JBu3jrH+4dGRqJMmLUqkQ7UXziSVk/ef7WFfNfoPPjVx0wA\ndyKoHbNDerYWcO9ubbsBvblg9XUOq6cS8bypWZCtnt04y5H3y09jx5kcQEpanwzi\nw95QbPcOq/Y/bLYJlGyZKHuzRh6OCwQDl/sRmhnlXZShoUq1Jg4GNROINx5Gl2Jd\nCppjIiTnAgMBAAECggEAEGMqnL1+dkcm4SBJr8zrQjsX3m1mzErcbXwpqjwaxvhs\n0jx+PuV7pCHo83fTYMoUOkHYxNdF0jqFdo1rBtQKTTfj6Ba6+s9vjn1IOkuecNwu\n7n0vOY/IxtvM5ftpC/ON3ZHPYosuxnyrscrQOnCjknR4rk9xhNahTxDDIHH0ezSy\nseJmbI39331Z8sKi3A0fZoytl10+gxpsAEXIrNRIzV/PR7+K5/ihpuygIygoam5v\nChR65W3rTgzZekZTeuXI3aUggEwoK8iVS+t0Cx6NtcuKe0OPyNzWLobPnwD5DTNd\nY2/JChg6VuBAjHKZbv15TRxq3FGa+KtQuVX2MISTMQKBgQD9T4ciHHoh9k/GLFMK\nAB8reBvNC3VQHFKKH9lnTMdTY1oDaZzXIvHIHEkPRpojRV19zF7q4nEhkk469CWr\nRxIMHnYMlCnEnPBdDbqw3SUom0YA5O/K3dAKqL2yN1EoWt26C3AZ/DhEhlwNGPTy\nGApXSqajGrpCRkKMplIi7PqR+wKBgQDQKq0zqKGoJ6XpmrdJd9wyR7ROhKfyjTi0\nY+qS3pR0Bc4uIXJCJpWx6V624RfhBu5x6pYcNwJSb0QWenhAYehPksvlO10aahRd\ntvNhLA7o2UP39xw9u+PaQwznPz3rY8OZkWJIfbQZ9OyLIgA2XPDisj3SGQPqUxj2\n31ctM3DxBQKBgQDA2Buzn2RnmKIw56usMF2KdV0M5A1CmN1JpGeZWf1hgYCUmoG5\n0zOoucfxJjnQYk2DqOQWA6BHA6AlB5vp4iheK46Jkv6dXTEsVnhrj2BropJPufrI\nQcfRZZdNJwnVJCArM+v7DGY13OgVXIuWBzFQNVfZUk68h8rAUxqy1iEIowKBgC1S\nrWVK+O+AumnzSqbPVv0HiaVy0pJH1ynHe2JA3feo7+wxUgw/FGapFfshZS6UcMQS\nvF4mR/YkzaFLRvVVm9v/bS9aznma0RZaaAEnM5PVAixx/A8g4oo6AQw0Q8oFbaf4\n9HouDFF+dyYP4BX2BGiHQFiHI8gYEZ5moDdyNMv1AoGAJV/QPCNZ7Dc5f/CkFfNK\nrV6K9bktHS2heG6h/BIZy1fjBTS/wIL74aA391XuNh42MO9UuxT0O2braU/N8TUJ\nz2lxiKQw0Wz0iSJ0Ra7J05M1GF36AnsWgFlIMIWYqp/yfy+Lqz7U+fFLBO8hHZSf\ncOI19FxZaO6hX5iJZvZkYMU=\n-----END PRIVATE KEY-----\n",
+  "client_email": "editor@pokemon-database-update.iam.gserviceaccount.com",
+  "client_id": "114905920832702300741",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/editor%40pokemon-database-update.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
