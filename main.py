@@ -124,18 +124,28 @@ async def show_search_ui(interaction: discord.Interaction):
     """
     # 検索UI用のEmbed
     search_embed = discord.Embed(
-        title="ポケモン検索",
+        title="ポケモンサーチャー",
         description="下のメニューから検索条件を選択するか、テキスト入力フィールドに直接検索条件を入力してください。",
         color=0x00FF7F
+    )
+    search_embed.set_footer(text="No.27 ポケモンサーチャー")
+
+    # クエリフィールドを追加（ここに選択内容が表示される）
+    search_embed.add_field(
+        name="現在の検索条件",
+        value="```\n(なし)\n```",
+        inline=False
     )
     
     search_embed.add_field(
         name="検索条件の入力方法",
-        value="**タイプ**: タイプ名をそのまま入力（例: みず）\n"
-              "**特性**: 特性名をそのまま入力（例: ふゆう）\n"
-              "**世代**: 「世代:数字」で入力（例: 世代:8）\n"
-              "**種族値**: 「HP100」「攻撃90」などで入力\n"
-              "**進化段階**: 「最終進化」「進化しない」など",
+        value="**タイプ**: タイプを入力（例: みず）\n"
+              "**特性**: 特性名を入力（例: ふゆう）\n"
+              "**世代**: 半角数字で入力（例: 8）\n"
+              "**種族値**: 「攻撃100」「A90」などで入力\n"
+              "**進化段階**: 「最終進化」「進化しない」など\n"
+              "**地方**: 「ジョウト」「ホウエン」など\n"
+              "```\n/search query: かくとう テクニシャン 3 A130 S70 最終進化\n```",
         inline=False
     )
     
@@ -156,7 +166,7 @@ async def show_search_ui(interaction: discord.Interaction):
         placeholder="世代で絞り込む",
         custom_id="search_gen_select",
         min_values=0,
-        max_values=1,
+        #max_values=1,
         options=[
             discord.SelectOption(label=f"第{gen}世代", value=str(gen))
             for gen in sorted(GLOBAL_BRELOOM_DF['初登場世代'].unique().tolist())
@@ -168,7 +178,7 @@ async def show_search_ui(interaction: discord.Interaction):
         placeholder="進化段階で絞り込む",
         custom_id="search_evo_select",
         min_values=0,
-        max_values=1,
+        #max_values=1,
         options=[
             discord.SelectOption(label=evo_stage, value=evo_stage)
             for evo_stage in sorted(GLOBAL_BRELOOM_DF['進化段階'].unique().tolist())
@@ -199,7 +209,7 @@ async def show_search_ui(interaction: discord.Interaction):
     
     # モーダル表示用のボタン
     modal_button = discord.ui.Button(
-        label="クエリの直接入力",
+        label="直接入力",
         style=discord.ButtonStyle.success,
         custom_id="search_modal_button"
     )
@@ -235,16 +245,18 @@ async def perform_search(interaction: discord.Interaction, filter_words):
         for index, row in searched_poke_datas.iterrows():
             results.append([row['おなまえ'], ub.bss_to_text(row)])
         
+        # ページング関連の設定
+        page_size = 10
+        total_pages = (len(results) + page_size - 1) // page_size
+        current_page = 0  # 最初のページは0
+
         # 結果表示用のEmbedを作成
         search_embed = discord.Embed(
-            title=f'検索結果: {len(results)}匹', 
+            title=f'検索結果: {len(results)}匹 (ページ {current_page + 1}/{total_pages})', 
             color=0x00FF7F,
-            description=f'クエリ: {" ".join(filter_words)}'
+            description=f'query: {" ".join(filter_words)}'
         )
         search_embed.set_author(name="ポケモンサーチャー")
-        search_embed.add_field(name="検索条件の入力方法",
-                        value="[タイプ]: タイプを入力（例: みず）\n[特性]: 特性名を入力（例: ふゆう）\n[世代]: 半角数字で入力（例: 8）\n[種族値]: 「攻撃100」「A90」などで入力\n[進化段階]: 「最終進化」「進化しない」など\n```\n/search query: かくとう テクニシャン 3 A130 S70 最終進化\n```",
-                        inline=False)
         search_embed.set_footer(text="No.27 ポケモンサーチャー")
                 
         # フィルター条件を表示
@@ -278,11 +290,6 @@ async def perform_search(interaction: discord.Interaction, filter_words):
                         inline=False
                     )
                 elif i == 10:
-                    search_embed.add_field(
-                        name=f"他 {len(results) - 10} 匹",
-                        value=f"検索結果が多いため省略されました",
-                        inline=False
-                    )
                     break
         
         # ページネーションボタン（結果が多い場合）
@@ -326,6 +333,113 @@ async def perform_search(interaction: discord.Interaction, filter_words):
             color=0xFF0000
         )
         await interaction.followup.send(embed=no_result_embed)
+
+async def handle_pagination(interaction, current_page, direction, total_results, filter_words):
+    """ページネーションを処理する関数
+    
+    Parameters:
+    ----------
+    interaction : discord.Interaction
+        インタラクションオブジェクト
+    current_page : int
+        現在のページ番号
+    direction : str
+        ページ送りの方向 ("prev" または "next")
+    total_results : int
+        検索結果の総数
+    filter_words : list
+        検索条件のリスト
+    """
+    # ページサイズ（1ページあたりの結果数）
+    page_size = 10
+    
+    # 次のページ番号を計算
+    if direction == "prev":
+        next_page = max(0, current_page - 1)
+    else:  # "next"
+        next_page = current_page + 1
+    
+    # 応答を遅延
+    await interaction.response.defer()
+    
+    # フィルター辞書を作成して検索実行
+    filter_dict = ub.make_filter_dict(filter_words)
+    searched_poke_datas = ub.filter_dataframe(filter_dict).fillna('なし')
+    
+    # 結果リストを作成
+    results = []
+    for index, row in searched_poke_datas.iterrows():
+        results.append([row['おなまえ'], ub.bss_to_text(row)])
+    
+    # 総ページ数を計算
+    total_pages = (len(results) + page_size - 1) // page_size
+    
+    # 該当ページの結果を取得
+    start_idx = next_page * page_size
+    end_idx = min(start_idx + page_size, len(results))
+    page_results = results[start_idx:end_idx]
+    
+    # 結果表示用のEmbedを作成
+    search_embed = discord.Embed(
+        title=f'検索結果: {len(results)}匹 (ページ {next_page + 1}/{total_pages})', 
+        color=0x00FF7F,
+        description=f'```query: {" ".join(filter_words)}```'
+    )
+    search_embed.set_author(name="ポケモンサーチャー")
+    
+    # フィルター条件を表示
+    for key, values in filter_dict.items():
+        search_embed.add_field(
+            name=f"条件: {key}",
+            value=", ".join(values),
+            inline=True
+        )
+    
+    # 結果リスト
+    for result in page_results:
+        search_embed.add_field(
+            name=result[0],
+            value=result[1],
+            inline=False
+        )
+    
+    search_embed.set_footer(text=f"No.27 ポケモンサーチャー - ページ {next_page + 1}")
+    
+    # ページネーションボタン
+    nav_view = discord.ui.View(timeout=None)
+    
+    # 前のページボタン（最初のページでは無効）
+    prev_button = discord.ui.Button(
+        label="前へ", 
+        style=discord.ButtonStyle.secondary,
+        custom_id=f"search_prev:{next_page}:{total_results}",
+        disabled=next_page == 0
+    )
+    nav_view.add_item(prev_button)
+    
+    # 次のページボタン（最後のページでは無効）
+    next_button = discord.ui.Button(
+        label="次へ", 
+        style=discord.ButtonStyle.primary,
+        custom_id=f"search_next:{next_page}:{total_results}",
+        disabled=end_idx >= len(results)
+    )
+    nav_view.add_item(next_button)
+    
+    # 新しい検索ボタン
+    new_search_button = discord.ui.Button(
+        label="新しい検索", 
+        style=discord.ButtonStyle.success,
+        custom_id="search_new_button"
+    )
+    nav_view.add_item(new_search_button)
+    
+    # メッセージを更新
+    await interaction.followup.edit_message(
+        message_id=interaction.message.id,
+        embed=search_embed,
+        view=nav_view
+    )
 
 # ===================================================================================================
 # 定期的に実行する処理
@@ -470,7 +584,8 @@ async def display_pokedex(interaction, name, message=None):
         # 種族値グラフの生成と設定
         bss = [dexH, dexA, dexB, dexC, dexD, dexS]
         graph_path = ub.generate_graph(bss=bss, name=dexName)
-        filename = f"basestats_{dexNumber}_{jaconv.kata2alphabet(jaconv.hira2kata(dexName)).lower()}.png"
+        #filename = f"basestats_{dexNumber}_{jaconv.kata2alphabet(jaconv.hira2kata(dexName)).lower()}.png"
+        filename = f"basestats_graph.png"
         attach_graph = discord.File(graph_path, filename=filename)
         dexEmbed.set_image(url=f"attachment://{filename}")
         
@@ -1223,23 +1338,58 @@ async def on_button_click(interaction: discord.Interaction):
             )
             authModal.add_item(favePokeInput)
             await interaction.response.send_modal(authModal)  
-        case "search_execute_button": # 検索実行ボタンが押された場合
-            # 選択されている条件を収集
-            filter_words = []
+        case "search_execute_button":  # 検索実行ボタンが押された場合
+            # Embedからクエリフィールドの内容を取得
+            embed = interaction.message.embeds[0]
+            query_field = embed.fields[0]
+            query_text = query_field.value.strip("```\n")
             
-            for component in interaction.message.components:
-                for child in component.children:
-                    if child.type == discord.ComponentType.select and hasattr(child, 'values') and child.values:
-                        if child.custom_id == "search_type_select":
-                            filter_words.extend(child.values)
-                        elif child.custom_id == "search_gen_select":
-                            for gen in child.values:
-                                filter_words.append(f"世代:{gen}")
-                        elif child.custom_id == "search_evo_select":
-                            filter_words.extend(child.values)
+            # クエリが空か(なし)の場合はエラーメッセージを表示
+            if query_text == "" or query_text == "(なし)":
+                await interaction.response.send_message(
+                    "検索条件が指定されていません。タイプや世代などを選択してください。",
+                    ephemeral=True
+                )
+                return
             
-            # 検索実行
+            # クエリを空白で分割して検索実行
+            filter_words = query_text.split()
             await perform_search(interaction, filter_words)
+            
+        case "search_reset_button":  # 検索リセットボタンが押された場合
+            # 現在のEmbedを取得して条件を初期化
+            embed = interaction.message.embeds[0]
+            embed.set_field_at(
+                0,
+                name="現在の検索条件",
+                value="```\n(なし)\n```",
+                inline=False
+            )
+            # メッセージを更新
+            await interaction.response.edit_message(embed=embed)
+            
+        case "search_modal_button":  # クエリ直接入力ボタンが押された場合
+            # 現在のクエリを取得
+            embed = interaction.message.embeds[0]
+            current_query = embed.fields[0].value.strip("```\n")
+            if current_query == "(なし)":
+                current_query = ""
+            
+            # モーダルの作成
+            search_modal = discord.ui.Modal(title="検索条件の入力", custom_id="search_modal")
+            
+            # 検索条件入力フィールド
+            search_input = discord.ui.TextInput(
+                label="検索条件を入力",
+                placeholder="例: みず はがね ふゆう 8",
+                style=discord.TextStyle.paragraph,
+                default=current_query,
+                custom_id="search_input",
+                required=True
+            )
+            search_modal.add_item(search_input)
+            
+            await interaction.response.send_modal(search_modal)
         case "search_new_button": # 新しい検索ボタンが押された場合
             # 検索UIを表示
             await show_search_ui(interaction)
@@ -1248,7 +1398,7 @@ async def on_button_click(interaction: discord.Interaction):
             await show_search_ui(interaction)
         case "search_modal_button": # 検索モーダルボタンが押された場合
             # 検索条件入力用のモーダルを表示
-            search_modal = discord.ui.Modal(title="ポケモン検索", custom_id="search_modal")
+            search_modal = discord.ui.Modal(title="ポケモンサーチャー", custom_id="search_modal")
             
             # 検索条件入力フィールド
             search_input = discord.ui.TextInput(
@@ -1388,147 +1538,65 @@ async def on_button_click(interaction: discord.Interaction):
                 else:
                     await interaction.response.send_message("該当するポケモンが見つかりませんでした", ephemeral=True)
             elif custom_id.startswith("search_prev:"): # ページネーションボタン（前へ）が押された場合
-                current_page = int(interaction.data["custom_id"].split(":")[1])
-                # ページ処理を実装（省略）
-            elif custom_id.startswith("search_next:"): # ページネーションボタン（次へ）が押された場合
-                parts = interaction.data["custom_id"].split(":")
+                parts = custom_id.split(":")
                 current_page = int(parts[1])
                 total_results = int(parts[2])
-                # ページ処理を実装（省略）
+                
+                # 元のメッセージから検索クエリを取得
+                original_query = interaction.message.embeds[0].description.strip("```query: ").strip("```")
+                filter_words = original_query.split()
+                
+                # ページネーション処理
+                await handle_pagination(interaction, current_page, "prev", total_results, filter_words)
+            elif custom_id.startswith("search_next:"): # ページネーションボタン（次へ）が押された場合
+                parts = custom_id.split(":")
+                current_page = int(parts[1])
+                total_results = int(parts[2])
+                
+                # 元のメッセージから検索クエリを取得
+                original_query = interaction.message.embeds[0].description.strip("```query: ").strip("```")
+                filter_words = original_query.split()
+                
+                # ページネーション処理
+                await handle_pagination(interaction, current_page, "next", total_results, filter_words)
             
 
 async def on_modal_submit(interaction: discord.Interaction):
     custom_id = interaction.data["custom_id"]  
 
     match custom_id:
-        case "authModal":  # 学籍番号モーダルが送信された場合
-            ub.output_log("学籍番号を処理します")
-            listPath = MEMBERDATA_PATH
-            studentId = interaction.data["components"][0]["components"][0]["value"]
-
-            if (
-                (studentId := studentId.upper()).startswith(
-                    ("S", "A", "C", "J", "D", "B", "E", "G")
-                )
-                and re.match(r"^[A-Z0-9]+$", studentId)
-                and len(studentId) == 7
-            ):
-                member = interaction.user
-                role = interaction.guild.get_role(UNKNOWN_ROLE_ID)
-                favePokeName = interaction.data["components"][1]["components"][0]["value"]
-                response = "登録を修正したい場合はもう一度ボタンを押してください"
-
-                if role in member.roles:  # ロールを持っていれば削除
-                    await member.remove_roles(role)
-                    response += "\nサーバーが利用可能になりました"
-                    ub.output_log(f"学籍番号が登録されました\n {member.name}: {studentId}")
-                else:
-                    ub.output_log(
-                        f"登録の修正を受け付けました\n {member.name}: {studentId}"
-                    )
-                response += "\n`※このメッセージはあなたにしか表示されていません`"
-
-                thanksEmbed = discord.Embed(
-                    title="登録ありがとうございました", color=0x2EAFFF, description=response
-                )
-                thanksEmbed.add_field(name="登録した学籍番号", value=studentId)
-                thanksEmbed.add_field(
-                    name="好きなポケモン",
-                    value=favePokeName if not favePokeName == "" else "登録なし",
-                )
-
-                if not favePokeName == "":
-                    if (favePokedata := ub.fetch_pokemon(favePokeName)) is not None:
-                        favePokeName = favePokedata.iloc[0]["おなまえ"]
-
-                times = datetime.now(ZoneInfo("Asia/Tokyo")).strftime("%Y/%m/%d %H:%M:%S")
-                authData = {
-                    "登録日時": [times],
-                    "ユーザーID": [str(member.id)],
-                    "ユーザー名": [member.name],
-                    "学籍番号": [studentId],
-                    "好きなポケモン": [favePokeName],
-                }
-                df = pd.DataFrame(authData)
-                df.to_csv(
-                    MEMBERLIST_PATH,
-                    mode="a",
-                    index=False,
-                    header=not os.path.exists(MEMBERLIST_PATH),
-                )
-
-                content = "照合に失敗しました ?\n※メンバーリストにまだ学籍番号のデータがない可能性があります"
-                if os.path.exists(listPath):
-                    member_df = pd.read_csv(listPath).set_index("学籍番号")
-                    if studentId in member_df.index:
-                        memberData = pd.DataFrame(
-                            {
-                                "ユーザーID": [member.id],
-                                "ユーザー名": [member.name],
-                                "好きなポケモン": [favePokeName],
-                            },
-                            index=[studentId],
-                        ).iloc[0]
-                        member_df.loc[studentId] = memberData
-                        member_df["ユーザーID"] = (
-                            member_df["ユーザーID"]
-                            .dropna()
-                            .replace([np.inf, -np.inf], np.nan)
-                            .dropna()
-                            .astype(int)
-                        )
-
-                        member_df.to_csv(listPath, index=True, float_format="%.0f")
-                        content = "照合に成功しました"
-                        ub.output_log(
-                            f"サークルメンバー照合ができました\n {studentId}: {member.name}"
-                        )
-                    else:
-                        ub.output_log(
-                            f"サークルメンバー照合ができませんでした\n {studentId}: {member.name}"
-                        )
-                else:
-                    ub.output_log(f"認証用   ファイルが存在しません: {listPath}")
-
-                await interaction.response.send_message(
-                    content, embed=thanksEmbed, ephemeral=True
-                )
-
-            else:  # 学籍番号が送信されなかった場合の処理
-                ub.output_log(f"学籍番号として認識されませんでした: {studentId}")
-                errorEmbed = discord.Embed(
-                    title="401 Unauthorized",
-                    color=0xFF0000,
-                    description=f"あなたの入力した学籍番号: **{studentId}**\n申し訳ございませんが、もういちどお試しください。",
-                )
-                errorEmbed.set_author(
-                    name="Porygon-Z.com", url="https://wiki.ポケモン.com/wiki/ポリゴンZ"
-                )
-                errorEmbed.set_thumbnail(url=f"{EX_SOURCE_LINK}art/474.png")
-                errorEmbed.add_field(
-                    name="入力形式は合っていますか?",
-                    value="半角英数字7ケタで入力してください",
-                    inline=False,
-                )
-                errorEmbed.add_field(
-                    name="工学院生ではありませんか?",
-                    value="個別にご相談ください",
-                    inline=False,
-                )
-                errorEmbed.add_field(
-                    name="解決しない場合",
-                    value=f"管理者にお問い合わせください: <@!{DEVELOPER_USER_ID}>",
-                    inline=False,
-                )
-                await interaction.response.send_message(embed=errorEmbed, ephemeral=True)
         case "search_modal":  # 検索モーダルが送信された場合
             search_query = interaction.data["components"][0]["components"][0]["value"]
-            await perform_search(interaction, search_query.split())
+            
+            if search_query.strip() == "":
+                # クエリが空の場合
+                await interaction.response.send_message(
+                    "検索条件が指定されていません。",
+                    ephemeral=True
+                )
+                return
+            
+            # 元のメッセージを取得して更新
+            if hasattr(interaction, "message") and interaction.message:
+                embed = interaction.message.embeds[0]
+                embed.set_field_at(
+                    0,
+                    name="現在の検索条件",
+                    value=f"```\n{search_query}\n```",
+                    inline=False
+                )
+                await interaction.response.edit_message(embed=embed)
+                
+                # 別の応答で検索実行
+                await perform_search(interaction, search_query.split())
+            else:
+                # メッセージが取得できない場合は直接検索を実行
+                await perform_search(interaction, search_query.split())
 
 
 async def on_selectmenu_submit(interaction: discord.Interaction):
     custom_id = interaction.data["custom_id"]
-    
+
     if custom_id.startswith("dex_form:"):
         base_dex_num = custom_id.split(":")[1]
         selected_form = interaction.data["values"][0]  # 選択された姿違いの図鑑番号
@@ -1546,7 +1614,58 @@ async def on_selectmenu_submit(interaction: discord.Interaction):
             await display_pokedex(interaction, selected_name, interaction.message)
         else:
             await interaction.response.send_message("該当するポケモンが見つかりませんでした", ephemeral=True)
-
+    # searchから始まる場合
+    elif custom_id.startswith("search_"):
+        # 現在のEmbedを取得
+        embed = interaction.message.embeds[0]
+        current_query_field = embed.fields[0]
+        
+        # 現在のクエリ内容を取得
+        current_query = current_query_field.value.strip("```\n")
+        if current_query == "(なし)":
+            current_query = ""
+        
+        # 選択内容をクエリに追加
+        new_query = current_query
+    
+        match custom_id:
+            case "search_type_select":
+                selected_types = interaction.data["values"]
+                for type_name in selected_types:
+                    if type_name not in new_query.split():
+                        new_query += f" {type_name}"
+                ub.output_log(f"ユーザー {interaction.user.name} がタイプ {selected_types} を選択しました")
+            
+            case "search_gen_select":
+                if interaction.data["values"]:
+                    # 世代は数字のみで指定
+                    selected_gen = interaction.data["values"][0]
+                    if selected_gen not in new_query.split():
+                        new_query += f" {selected_gen}"
+                    ub.output_log(f"ユーザー {interaction.user.name} が世代 {selected_gen} を選択しました")
+            
+            case "search_evo_select":
+                if interaction.data["values"]:
+                    selected_evo = interaction.data["values"][0]
+                    if selected_evo not in new_query.split():
+                        new_query += f" {selected_evo}"
+                    ub.output_log(f"ユーザー {interaction.user.name} が進化段階 {selected_evo} を選択しました")
+    
+        # 空白を整理してクエリを更新
+        new_query = new_query.strip()
+        if not new_query:
+            new_query = "(なし)"
+        
+        # Embedを更新
+        embed.set_field_at(
+            0,
+            name="現在の検索条件",
+            value=f"```\n{new_query}\n```",
+            inline=False
+        )
+        
+        # メッセージを更新
+        await interaction.response.edit_message(embed=embed)
 
 # ボイスチャンネルへの参加・退出を検知
 @client.event
