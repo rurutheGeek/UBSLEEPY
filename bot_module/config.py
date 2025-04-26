@@ -53,6 +53,7 @@ TYPE_COLOR_DICT={}
 PRIZE_DICT={}
 DEFAULT_FILTER_DICT={}
 
+
 client = discord.Client(
     intents=discord.Intents.all(),
     activity=discord.Activity(name="研修チュウ", type=discord.ActivityType.unknown),

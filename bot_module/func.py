@@ -81,31 +81,6 @@ def fetch_pokemon(input: str) -> pd.DataFrame:
     output_log(fixedName+"の図鑑データは見つかりませんでした")
     return None
 
-
-def filter_dataframe(filter_dict):
-  '''ポケモンの図鑑データをフィルタリングする
-  Parameters:
-  ----------
-  filter_dict : dict
-    フィルタリング条件の辞書
-  '''
-  output_log("以下の条件でデータベースをフィルタリングします\n "+str(filter_dict))
-  filteredPokeData = GLOBAL_BRELOOM_DF.copy()
-  
-  for key, value in filter_dict.items():
-    if key == 'タイプ':
-      filteredPokeData = filteredPokeData[(filteredPokeData['タイプ1'].isin(value)) | (filteredPokeData['タイプ2'].isin(value))]
-    elif key == '特性':
-      filteredPokeData = filteredPokeData[(filteredPokeData['特性1'].isin(value)) | (filteredPokeData['特性2'].isin(value)) | (filteredPokeData['隠れ特性'].isin(value))]
-    elif value[0].isdecimal():
-      filteredPokeData = filteredPokeData[filteredPokeData[key].isin([int(v) for v in value])]
-    else:
-      filteredPokeData = filteredPokeData[filteredPokeData[key].isin(value)]
-      
-  output_log("データのフィルタリングが完了しました 取得行数: "+str(filteredPokeData.shape[0]))
-  return filteredPokeData
-
-
 def bss_to_text(values) -> str:
   '''ポケモンの図鑑データから種族値文字列を生成する
   Parameters:
@@ -271,41 +246,6 @@ def report(userId, repoIndex: str, modifi: int) -> int:
   
   return reports.loc[userId, repoIndex]
 
-
-#除外検索できるようにしたい 語頭のマイナスを検知,フラグを立てる
-def make_filter_dict(values: list[str]) -> dict[str,str]:
-  output_log("以下の項目でフィルタ辞書を生成します\n "+str(values))
-  
-  new_dict={}
-  #valueがどのインデックスに該当するか検索
-  for i in range(len(values)):
-    if values[i] in GLOBAL_BRELOOM_DF['進化段階'].unique().tolist():
-      dictIndex='進化段階'
-    elif values[i] in ['1','2','3','4','5','6','7','8','9']:
-      dictIndex='初登場世代'
-    elif values[i] in GLOBAL_BRELOOM_DF['出身地'].unique().tolist():
-      dictIndex='出身地'
-    elif values[i] in GLOBAL_BRELOOM_DF['タイプ1'].unique().tolist():
-      dictIndex='タイプ'
-    elif values[i].upper().startswith(tuple(BASE_STATS_DICT.keys())):
-      for key in BASE_STATS_DICT.keys():
-        if values[i].upper().startswith(key):
-          dictIndex = BASE_STATS_DICT[key]
-          values[i] = values[i][len(key):]  # 数字の部分だけを抜き出す
-          break
-    elif values[i] in np.unique(GLOBAL_BRELOOM_DF[['特性1','特性2','隠れ特性']].astype(str).values.ravel()):
-      dictIndex='特性'
-    else:
-      continue
-      
-    if dictIndex not in new_dict:
-      new_dict[dictIndex] = []
-      
-    new_dict[dictIndex].append(values[i])
-    
-  output_log("以下のフィルタ辞書を生成しました\n "+str(new_dict))
-  return new_dict
-
 def attachment_file(file_path: str) -> discord.File:
   '''discordのファイルオブジェクトを生成する
   Parameters:
@@ -365,8 +305,6 @@ def show_calendar(day: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))) -> disco
 
   return createdEmbed
 
-
-
 def show_senryu(unique: bool = False) -> discord.Embed:
   senryu_df = pd.read_csv(POKESENRYU_PATH)
   
@@ -394,4 +332,5 @@ def show_senryu(unique: bool = False) -> discord.Embed:
     createdEmbed.set_thumbnail(url=f"{EX_SOURCE_LINK}art/{senryuDexNum}.png")
     
   return createdEmbed
+
 
