@@ -11,6 +11,7 @@ import re
 import asyncio
 import json
 from PIL import Image
+import math
 
 # 外部ライブラリ
 ##https://discordpy.readthedocs.io/ja/latest/index.html
@@ -791,6 +792,212 @@ async def slash_devimport(interaction: discord.Interaction):
                     "このサーバーにギルドコマンドを登録しました", ephemeral=True
                 )
 
+@tree.command(name="simil", description="指定したポケモンと似ている種族値のポケモンを表示します")
+@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
+@discord.app_commands.describe(
+    name="基準となるポケモンのおなまえ",
+    evolution="進化段階フィルター (auto:入力ポケモンと同じ, final:最終進化/進化しない, middle:中間進化/進化前, all:すべて)"
+)
+@discord.app_commands.choices(
+    evolution=[
+        discord.app_commands.Choice(name="入力ポケモンと同じ", value="auto"),
+        discord.app_commands.Choice(name="最終進化/進化しない", value="final"),
+        discord.app_commands.Choice(name="中間進化/進化前", value="middle"),
+        discord.app_commands.Choice(name="すべて", value="all"),
+    ]
+)
+async def slash_simil(interaction: discord.Interaction, name: str, evolution: str = "auto"):
+    # まず応答を遅延させる - これによりタイムアウトを防ぐ
+    await interaction.response.defer()
+    
+    # 入力ポケモンのデータ取得
+    base_pokemon = ub.fetch_pokemon(name)
+    if base_pokemon is None:
+        ub.output_log(f"404 NotFound: {name}")
+        await interaction.followup.send(embed=ub_embed.error_404(name))
+        return
+    
+    # 基準ポケモンの情報を取得
+    base_name = base_pokemon.iloc[0]['おなまえ']
+    base_dexnum = base_pokemon.iloc[0]['ぜんこくずかんナンバー']
+    base_evolution = base_pokemon.iloc[0]['進化段階']
+    base_bss = np.array([
+        int(base_pokemon.iloc[0]['HP']),
+        int(base_pokemon.iloc[0]['こうげき']),
+        int(base_pokemon.iloc[0]['ぼうぎょ']),
+        int(base_pokemon.iloc[0]['とくこう']),
+        int(base_pokemon.iloc[0]['とくぼう']),
+        int(base_pokemon.iloc[0]['すばやさ'])
+    ])
+    
+    # 固定表示数
+    limit = 20
+    
+    # 進化段階でフィルタリング
+    if evolution == "auto":
+        # 入力されたポケモンの進化段階に基づいてフィルタリング
+        if base_evolution in ['最終進化', '進化しない']:
+            filtered_df = GLOBAL_BRELOOM_DF[GLOBAL_BRELOOM_DF['進化段階'].isin(['最終進化', '進化しない'])]
+            evolution_text = "最終進化または進化しない"
+        else:  # 中間進化や進化前
+            filtered_df = GLOBAL_BRELOOM_DF[GLOBAL_BRELOOM_DF['進化段階'].isin(['第一進化', '進化前'])]
+            evolution_text = "中間進化または進化前"
+    elif evolution == "final":
+        filtered_df = GLOBAL_BRELOOM_DF[GLOBAL_BRELOOM_DF['進化段階'].isin(['最終進化', '進化しない'])]
+        evolution_text = "最終進化または進化しない"
+    elif evolution == "middle":
+        filtered_df = GLOBAL_BRELOOM_DF[GLOBAL_BRELOOM_DF['進化段階'].isin(['第一進化', '進化前'])]
+        evolution_text = "中間進化または進化前"
+    else:  # "all"
+        filtered_df = GLOBAL_BRELOOM_DF
+        evolution_text = "すべての"
+    
+    ub.output_log(f"種族値類似度ランキングを実行します: {base_name} ({evolution_text}ポケモン上位{limit}匹)")
+    
+    # 全ポケモンとの類似度を計算
+    similarity_data = []
+    for _, row in filtered_df.iterrows():
+        # 同じポケモンはスキップ
+        if row['おなまえ'] == base_name:
+            continue
+            
+        # 種族値を取得
+        comp_bss = np.array([
+            int(row['HP']),
+            int(row['こうげき']),
+            int(row['ぼうぎょ']),
+            int(row['とくこう']),
+            int(row['とくぼう']),
+            int(row['すばやさ'])
+        ])
+        
+        # ユークリッド距離で類似度を計算 (値が小さいほど似ている)
+        distance = np.sqrt(np.sum((base_bss - comp_bss) ** 2))
+        
+        similarity_data.append({
+            'name': row['おなまえ'],
+            'dexnum': row['ぜんこくずかんナンバー'],
+            'distance': distance,
+            'bss': comp_bss,
+            'evolution': row['進化段階']
+        })
+    
+    # 距離でソート (小さい順 = 類似度が高い順)
+    similarity_data.sort(key=lambda x: x['distance'])
+    
+    # 上位のポケモンを取得 (limitで指定された数まで)
+    top_similar = similarity_data[:limit]
+    
+    # 画像表示用のポケモン (入力ポケモン + 上位5匹)
+    display_pokemon = [{'name': base_name, 'dexnum': base_dexnum, 'bss': base_bss}]
+    display_pokemon.extend(top_similar[:5])  # 上位5匹だけを画像表示対象に
+    
+    # 各ポケモンのグラフを生成
+    temp_paths = [f"save/temp_simil_{i}.png" for i in range(len(display_pokemon))]
+    combined_img_path = "save/compared_simil_graph.png"
+    
+    images = []
+    for i, pokemon in enumerate(display_pokemon):
+        if i == 0:
+            graph_path = ub.generate_graph(bss=pokemon['bss'], name=pokemon['name'])
+        else:
+            graph_path = ub.generate_graph(bss=pokemon['bss'], name=f"{i}"+'位：'+pokemon['name'])
+        img = Image.open(graph_path)
+        img.save(temp_paths[i])
+        img.close()
+        img = Image.open(temp_paths[i])
+        images.append(img)
+    
+    # 画像の合成（3×2のグリッドレイアウト）
+    # すべての画像が同じサイズであると仮定
+    img_width = images[0].width
+    img_height = images[0].height
+    
+    # グリッドレイアウトの設定
+    rows = 2
+    cols = 3
+    
+    # 合成画像のサイズを計算
+    combined_width = img_width * cols
+    combined_height = img_height * rows
+    
+    # 新しい画像を作成（背景色を設定）
+    combined_img = Image.new('RGB', (combined_width, combined_height), color=(255, 250, 227))
+    
+    # 画像を配置
+    for i, img in enumerate(images):
+        if i >= rows * cols:  # 最大6枚まで
+            break
+        row = i // cols
+        col = i % cols
+        x_offset = col * img_width
+        y_offset = row * img_height
+        combined_img.paste(img, (x_offset, y_offset))
+    
+    # 合成画像を保存
+    combined_img.save(combined_img_path)
+    combined_img.close()
+    
+    # 画像を閉じる
+    for img in images:
+        img.close()
+    
+    # 一時ファイルを削除
+    for path in temp_paths:
+        os.remove(path)
+    
+    # ファイル名の作成 (基準ポケモンの図鑑番号を含める)
+    filename = f"similarity_{base_dexnum}_{jaconv.kata2alphabet(jaconv.hira2kata(base_name)).lower()}.png"
+    attach_image = discord.File(combined_img_path, filename=filename)
+    
+    # Embedの作成
+    embed = discord.Embed(
+        title=f"**{base_name}** と似ている種族値のポケモン",
+        description=f"{base_name}の種族値: {base_bss[0]}-{base_bss[1]}-{base_bss[2]}-{base_bss[3]}-{base_bss[4]}-{base_bss[5]} (合計: {sum(base_bss)})\n進化段階: {base_evolution}",
+        color=0x9013FE
+    )
+    
+    # 最大距離を用いて類似度を計算（パーセンテージ表示）
+    max_possible_distance = np.sqrt(6 * (255 ** 2))  # 各ステータスが0と255の場合の理論上の最大距離
+    
+    # 類似ポケモンをリストアップ
+    similarity_text = ""
+    for i, pokemon in enumerate(top_similar):
+        bss = pokemon['bss']
+        total = sum(bss)
+        distance = pokemon['distance']
+        evo_stage = pokemon['evolution']
+        
+        # 距離から類似度を計算（100%に近いほど似ている）
+        similarity_percentage = max(0, min(100, 100 * (1 - distance / max_possible_distance)))
+        similarity_percentage = round(similarity_percentage, 2)
+        
+        # 上位5匹は太字で表示
+        similarity_text += f"{i+1}. {pokemon['name']}  類似度:{similarity_percentage}% \n"
+
+    embed.add_field(
+        name=f"類似ランキング 1-20",
+        value=similarity_text,
+        inline=False
+    )
+    similarity_text = ""
+    
+    # 合成画像をEmbedに設定
+    embed.set_image(url=f"attachment://{filename}")
+    
+    # フッターに検索条件を表示
+    if evolution == "auto":
+        evolution_desc = f"{base_name}と同じ進化段階({evolution_text})の"
+    else:
+        evolution_desc = f"{evolution_text}"
+    
+    embed.set_footer(text=f"{base_name}との種族値類似度ランキング)")
+    
+    # 結果を送信
+    await interaction.followup.send(
+        files=[attach_image],
+        embed=embed
+    )
 
 # ===================================================================================================
 # イベントで発火する処理
