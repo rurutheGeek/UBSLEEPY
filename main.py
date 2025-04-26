@@ -795,8 +795,8 @@ async def slash_devimport(interaction: discord.Interaction):
 @tree.command(name="simil", description="指定したポケモンと似ている種族値のポケモンを表示します")
 @discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
 @discord.app_commands.describe(
-    name="基準となるポケモンのおなまえ",
-    evolution="進化段階フィルター (auto:入力ポケモンと同じ, final:最終進化/進化しない, middle:中間進化/進化前, all:すべて)"
+    name="基準となるポケモン",
+    evolution="結果の進化段階フィルター (auto:入力ポケモンと同じ, final:最終進化/進化しない, middle:中間進化/進化前, all:すべて)"
 )
 @discord.app_commands.choices(
     evolution=[
@@ -852,7 +852,7 @@ async def slash_simil(interaction: discord.Interaction, name: str, evolution: st
         filtered_df = GLOBAL_BRELOOM_DF
         evolution_text = "すべての"
     
-    ub.output_log(f"種族値類似度ランキングを実行します: {base_name} ({evolution_text}ポケモン上位{limit}匹)")
+    ub.output_log(f"種族値類似度を実行します: {base_name} ({evolution_text}ポケモン上位{limit}匹)")
     
     # 全ポケモンとの類似度を計算
     similarity_data = []
@@ -947,17 +947,19 @@ async def slash_simil(interaction: discord.Interaction, name: str, evolution: st
         os.remove(path)
     
     # ファイル名の作成 (基準ポケモンの図鑑番号を含める)
-    filename = f"similarity_{base_dexnum}_{jaconv.kata2alphabet(jaconv.hira2kata(base_name)).lower()}.png"
+    filename = f"similarity_{jaconv.kata2alphabet(jaconv.hira2kata(base_name)).lower()}.png"
     attach_image = discord.File(combined_img_path, filename=filename)
     
     # Embedの作成
     embed = discord.Embed(
-        title=f"**{base_name}** と似ている種族値のポケモン",
-        description=f"{base_name}の種族値: {base_bss[0]}-{base_bss[1]}-{base_bss[2]}-{base_bss[3]}-{base_bss[4]}-{base_bss[5]} (合計: {sum(base_bss)})\n進化段階: {base_evolution}",
+        title=f"種族値類似度ランキング",
+        description=f"**{base_name}** の種族値\n"
+                    f"```\n{base_bss[0]}-{base_bss[1]}-{base_bss[2]}-{base_bss[3]}-{base_bss[4]}-{base_bss[5]} {sum(base_bss)}\n```"
+                    f"進化段階: {base_evolution}",
         color=0x9013FE
     )
     
-    # 最大距離を用いて類似度を計算（パーセンテージ表示）
+    # 最大距離を用いて類似度を計算
     max_possible_distance = np.sqrt(6 * (255 ** 2))  # 各ステータスが0と255の場合の理論上の最大距離
     
     # 類似ポケモンをリストアップ
@@ -968,15 +970,15 @@ async def slash_simil(interaction: discord.Interaction, name: str, evolution: st
         distance = pokemon['distance']
         evo_stage = pokemon['evolution']
         
-        # 距離から類似度を計算（100%に近いほど似ている）
-        similarity_percentage = max(0, min(100, 100 * (1 - distance / max_possible_distance)))
-        similarity_percentage = round(similarity_percentage, 2)
-        
+        # 距離から類似度を計算（1.0に近いほど似ている）
+        similarity_score = max(0, min(1.0, 1 - distance / max_possible_distance))
+        similarity_score = round(similarity_score, 4)  # 必要に応じて小数点桁数を調整
+
         # 上位5匹は太字で表示
-        similarity_text += f"{i+1}. {pokemon['name']}  類似度:{similarity_percentage}% \n"
+        similarity_text += f"{i+1}. {pokemon['name']} : {similarity_score}\n"
 
     embed.add_field(
-        name=f"類似ランキング 1-20",
+        name=f"ランキング(1-20)",
         value=similarity_text,
         inline=False
     )
@@ -984,15 +986,8 @@ async def slash_simil(interaction: discord.Interaction, name: str, evolution: st
     
     # 合成画像をEmbedに設定
     embed.set_image(url=f"attachment://{filename}")
-    
-    # フッターに検索条件を表示
-    if evolution == "auto":
-        evolution_desc = f"{base_name}と同じ進化段階({evolution_text})の"
-    else:
-        evolution_desc = f"{evolution_text}"
-    
-    embed.set_footer(text=f"{base_name}との種族値類似度ランキング)")
-    
+        
+    embed.set_footer(text=f"No.31 種族値類似度ランキング")
     # 結果を送信
     await interaction.followup.send(
         files=[attach_image],
