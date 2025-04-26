@@ -81,31 +81,6 @@ def fetch_pokemon(input: str) -> pd.DataFrame:
     output_log(fixedName+"の図鑑データは見つかりませんでした")
     return None
 
-
-def filter_dataframe(filter_dict):
-  '''ポケモンの図鑑データをフィルタリングする
-  Parameters:
-  ----------
-  filter_dict : dict
-    フィルタリング条件の辞書
-  '''
-  output_log("以下の条件でデータベースをフィルタリングします\n "+str(filter_dict))
-  filteredPokeData = GLOBAL_BRELOOM_DF.copy()
-  
-  for key, value in filter_dict.items():
-    if key == 'タイプ':
-      filteredPokeData = filteredPokeData[(filteredPokeData['タイプ1'].isin(value)) | (filteredPokeData['タイプ2'].isin(value))]
-    elif key == '特性':
-      filteredPokeData = filteredPokeData[(filteredPokeData['特性1'].isin(value)) | (filteredPokeData['特性2'].isin(value)) | (filteredPokeData['隠れ特性'].isin(value))]
-    elif value[0].isdecimal():
-      filteredPokeData = filteredPokeData[filteredPokeData[key].isin([int(v) for v in value])]
-    else:
-      filteredPokeData = filteredPokeData[filteredPokeData[key].isin(value)]
-      
-  output_log("データのフィルタリングが完了しました 取得行数: "+str(filteredPokeData.shape[0]))
-  return filteredPokeData
-
-
 def bss_to_text(values) -> str:
   '''ポケモンの図鑑データから種族値文字列を生成する
   Parameters:
@@ -271,41 +246,6 @@ def report(userId, repoIndex: str, modifi: int) -> int:
   
   return reports.loc[userId, repoIndex]
 
-
-#除外検索できるようにしたい 語頭のマイナスを検知,フラグを立てる
-def make_filter_dict(values: list[str]) -> dict[str,str]:
-  output_log("以下の項目でフィルタ辞書を生成します\n "+str(values))
-  
-  new_dict={}
-  #valueがどのインデックスに該当するか検索
-  for i in range(len(values)):
-    if values[i] in GLOBAL_BRELOOM_DF['進化段階'].unique().tolist():
-      dictIndex='進化段階'
-    elif values[i] in ['1','2','3','4','5','6','7','8','9']:
-      dictIndex='初登場世代'
-    elif values[i] in GLOBAL_BRELOOM_DF['出身地'].unique().tolist():
-      dictIndex='出身地'
-    elif values[i] in GLOBAL_BRELOOM_DF['タイプ1'].unique().tolist():
-      dictIndex='タイプ'
-    elif values[i].upper().startswith(tuple(BASE_STATS_DICT.keys())):
-      for key in BASE_STATS_DICT.keys():
-        if values[i].upper().startswith(key):
-          dictIndex = BASE_STATS_DICT[key]
-          values[i] = values[i][len(key):]  # 数字の部分だけを抜き出す
-          break
-    elif values[i] in np.unique(GLOBAL_BRELOOM_DF[['特性1','特性2','隠れ特性']].astype(str).values.ravel()):
-      dictIndex='特性'
-    else:
-      continue
-      
-    if dictIndex not in new_dict:
-      new_dict[dictIndex] = []
-      
-    new_dict[dictIndex].append(values[i])
-    
-  output_log("以下のフィルタ辞書を生成しました\n "+str(new_dict))
-  return new_dict
-
 def attachment_file(file_path: str) -> discord.File:
   '''discordのファイルオブジェクトを生成する
   Parameters:
@@ -365,8 +305,6 @@ def show_calendar(day: datetime = datetime.now(ZoneInfo("Asia/Tokyo"))) -> disco
 
   return createdEmbed
 
-
-
 def show_senryu(unique: bool = False) -> discord.Embed:
   senryu_df = pd.read_csv(POKESENRYU_PATH)
   
@@ -395,3 +333,660 @@ def show_senryu(unique: bool = False) -> discord.Embed:
     
   return createdEmbed
 
+#除外検索できるようにしたい 語頭のマイナスを検知,フラグを立てる
+def make_filter_dict(values: list[str]) -> dict[str,list]:
+  output_log("以下の項目でフィルタ辞書を生成します\n "+str(values))
+  
+  new_dict = {}
+  # 小文字も大文字も認識できるようにキーのセットを拡張
+  stats_keys = set(BASE_STATS_DICT.keys()).union({k.lower() for k in BASE_STATS_DICT.keys()})
+  
+  for i in range(len(values)):
+    # 合計値の検出（例: 合計<550）
+    if values[i].startswith('合計') and any(op in values[i] for op in ['>', '<', '=']):
+      if 'STAT_EXPRESSION' not in new_dict:
+        new_dict['STAT_EXPRESSION'] = []
+      new_dict['STAT_EXPRESSION'].append(values[i])
+      continue
+    
+    # 複雑な式や種族値条件の検出
+    first_char_upper = values[i][0].upper() if values[i] else ''
+    if first_char_upper in BASE_STATS_DICT or '(' in values[i]:
+      if any(op in values[i] for op in ['>', '<', '=']):
+        if 'STAT_EXPRESSION' not in new_dict:
+          new_dict['STAT_EXPRESSION'] = []
+        new_dict['STAT_EXPRESSION'].append(values[i])
+        continue
+    
+    # 既存の処理
+    if values[i] in GLOBAL_BRELOOM_DF['進化段階'].unique().tolist():
+      dictIndex = '進化段階'
+    elif values[i] in ['1','2','3','4','5','6','7','8','9']:
+      dictIndex = '初登場世代'
+    elif values[i] in GLOBAL_BRELOOM_DF['出身地'].unique().tolist():
+      dictIndex = '出身地'
+    elif values[i] in GLOBAL_BRELOOM_DF['タイプ1'].unique().tolist():
+      dictIndex = 'タイプ'
+    elif values[i].upper() in np.unique(GLOBAL_BRELOOM_DF[['特性1','特性2','隠れ特性']].astype(str).values.ravel()):
+      dictIndex = '特性'
+    else:
+      continue
+      
+    if dictIndex not in new_dict:
+      new_dict[dictIndex] = []
+      
+    new_dict[dictIndex].append(values[i])
+    
+  output_log("以下のフィルタ辞書を生成しました\n "+str(new_dict))
+  return new_dict
+
+def filter_dataframe(filter_dict):
+  '''ポケモンの図鑑データをフィルタリングする
+  Parameters:
+  ----------
+  filter_dict : dict
+    フィルタリング条件の辞書
+  '''
+  output_log("以下の条件でデータベースをフィルタリングします\n "+str(filter_dict))
+  filteredPokeData = GLOBAL_BRELOOM_DF.copy()
+  
+  # 表示用の処理済み条件辞書
+  processed_conditions = {}
+  
+  # 数式によるフィルタリング
+  if 'STAT_EXPRESSION' in filter_dict:
+    for expression_str in filter_dict['STAT_EXPRESSION']:
+      expr_dict = parse_stat_expression(expression_str)
+      if expr_dict:
+        # フィルタリングを実行
+        filteredPokeData = evaluate_stat_expression(filteredPokeData, expr_dict)
+        
+        # 条件を表示用に整理
+        if expr_dict['type'] == 'total':
+          # 合計値条件
+          if '合計' not in processed_conditions:
+            processed_conditions['合計'] = []
+          processed_conditions['合計'].append(expression_str)
+        elif expr_dict['type'] == 'simple':
+          # 単純な種族値比較（例: H>=100）
+          stat_name = BASE_STATS_DICT[expr_dict['stat']]
+          if stat_name not in processed_conditions:
+            processed_conditions[stat_name] = []
+          processed_conditions[stat_name].append(expression_str)
+        elif expr_dict['type'] == 'equality':
+          # 等値比較（例: A==C）
+          if '数式' not in processed_conditions:
+            processed_conditions['数式'] = []
+          
+          # 使いやすい形式に変換（A→こうげき）
+          display_expr = expression_str
+          for stat, col_name in BASE_STATS_DICT.items():
+            display_expr = re.sub(r'\b' + re.escape(stat) + r'\b', col_name, display_expr, flags=re.IGNORECASE)
+          
+          processed_conditions['数式'].append(display_expr)
+        else:
+          # 複雑な数式（例: (H*B*D)/(B+D)<26825）
+          if '数式' not in processed_conditions:
+            processed_conditions['数式'] = []
+            
+          # 使いやすい形式に変換（A→こうげき）
+          display_expr = expression_str
+          for stat, col_name in BASE_STATS_DICT.items():
+            display_expr = re.sub(r'\b' + re.escape(stat) + r'\b', col_name, display_expr, flags=re.IGNORECASE)
+          
+          processed_conditions['数式'].append(display_expr)
+  
+  # 通常のフィルタリング
+  for key, value in filter_dict.items():
+    if key == 'STAT_EXPRESSION':
+      continue  # 数式は既に処理済み
+    
+    if key == 'タイプ':
+      filteredPokeData = filteredPokeData[(filteredPokeData['タイプ1'].isin(value)) | (filteredPokeData['タイプ2'].isin(value))]
+      processed_conditions['タイプ'] = value
+    elif key == '特性':
+      filteredPokeData = filteredPokeData[(filteredPokeData['特性1'].isin(value)) | (filteredPokeData['特性2'].isin(value)) | (filteredPokeData['隠れ特性'].isin(value))]
+      processed_conditions['特性'] = value
+    else:
+      processed_conditions[key] = value
+      try:
+        if len(value) > 0 and all(isinstance(v, str) and v.isdecimal() for v in value):
+          filteredPokeData = filteredPokeData[filteredPokeData[key].isin([int(v) for v in value])]
+        else:
+          filteredPokeData = filteredPokeData[filteredPokeData[key].isin(value)]
+      except:
+        filteredPokeData = filteredPokeData[filteredPokeData[key].isin(value)]
+      
+  output_log("データのフィルタリングが完了しました 取得行数: "+str(filteredPokeData.shape[0]))
+  
+  # DataFrameのカスタム属性として条件を保存（このアプローチがうまく行かないため、グローバル変数も使用）
+  global LAST_PROCESSED_CONDITIONS
+  LAST_PROCESSED_CONDITIONS = processed_conditions
+  filteredPokeData.processed_conditions = processed_conditions
+  
+  return filteredPokeData
+
+def filter_stat_combination(df, combination_str):
+  '''複合条件に基づくフィルタリングを行う
+  Parameters:
+  ----------
+  df : pd.DataFrame
+    フィルタリング対象のデータフレーム
+  combination_str : str
+    複合条件の文字列（例：'B+D>=200'）
+  
+  Returns:
+  ----------
+  df : pd.DataFrame
+    フィルタリング後のデータフレーム
+  '''
+  # パターンを使って演算子と値を抽出
+  operator_match = re.search(r'([><]=?|==|!=)', combination_str)
+  if not operator_match:
+    return df
+  
+  operator = operator_match.group(1)
+  parts = combination_str.split(operator)
+  stats_str = parts[0]
+  value = int(parts[1])
+  
+  # 種族値の列名のリストを作成
+  stat_cols = []
+  for stat in stats_str.split('+'):
+    if stat in BASE_STATS_DICT:
+      stat_cols.append(BASE_STATS_DICT[stat])
+  
+  # 複合条件に基づくフィルタリング
+  if not stat_cols:
+    return df
+    
+  if operator == '>=':
+    return df[df[stat_cols].sum(axis=1) >= value]
+  elif operator == '>':
+    return df[df[stat_cols].sum(axis=1) > value]
+  elif operator == '<=':
+    return df[df[stat_cols].sum(axis=1) <= value]
+  elif operator == '<':
+    return df[df[stat_cols].sum(axis=1) < value]
+  elif operator == '==':
+    return df[df[stat_cols].sum(axis=1) == value]
+  elif operator == '!=':
+    return df[df[stat_cols].sum(axis=1) != value]
+  
+  return df
+
+def filter_stat_expression(df, expression_str):
+  '''数式に基づくフィルタリングを行う
+  Parameters:
+  ----------
+  df : pd.DataFrame
+    フィルタリング対象のデータフレーム
+  expression_str : str
+    条件式の文字列（例：'H>=100'、'B+D>=200'、'(H*B*D)/(B+D)<26825'）
+  
+  Returns:
+  ----------
+  df : pd.DataFrame
+    フィルタリング後のデータフレーム
+  '''
+  try:
+    # まず単純な種族値の比較演算子の場合を処理
+    if expression_str[0].upper() in BASE_STATS_DICT and not '(' in expression_str:
+      stat_key = expression_str[0].upper()
+      col_name = BASE_STATS_DICT[stat_key]
+      rest = expression_str[1:]
+      
+      # 演算子と値を抽出
+      op_match = re.match(r'([><]=?|=)(.+)', rest)
+      if op_match:
+        op, val = op_match.groups()
+        val = float(val)
+        
+        if op == '>=':
+          return df[df[col_name] >= val]
+        elif op == '>':
+          return df[df[col_name] > val]
+        elif op == '<=':
+          return df[df[col_name] <= val]
+        elif op == '<':
+          return df[df[col_name] < val]
+        elif op == '=':  # 単独の=も一致として扱う
+          return df[df[col_name] == val]
+    
+    # 複雑な式の場合、式全体をパースして処理
+    else:
+      # 演算子位置を見つける
+      op_match = re.search(r'([><]=?|=)', expression_str)
+      if not op_match:
+        return df
+      
+      # 演算子と左右の式を分離
+      op_pos = op_match.start()
+      op = op_match.group()
+      left_expr = expression_str[:op_pos]
+      right_val = float(expression_str[op_pos + len(op):])
+      
+      # 左辺の式を準備（種族値をDataFrameの列参照に置換）
+      calc_expr = left_expr
+      stat_dict = {k.lower(): v for k, v in BASE_STATS_DICT.items()}  # 小文字のキーも追加
+      
+      for stat, col_name in {**BASE_STATS_DICT, **stat_dict}.items():
+        calc_expr = re.sub(r'\b' + re.escape(stat) + r'\b', f"df['{col_name}']", calc_expr)
+      
+      # 式を評価
+      calculated_values = eval(calc_expr)
+      
+      # 比較演算に基づいてフィルタリング
+      if op == '>=':
+        return df[calculated_values >= right_val]
+      elif op == '>':
+        return df[calculated_values > right_val]
+      elif op == '<=':
+        return df[calculated_values <= right_val]
+      elif op == '<':
+        return df[calculated_values < right_val]
+      elif op == '=':  # 単独の=も一致として扱う
+        return df[calculated_values == right_val]
+  
+  except Exception as e:
+    output_log(f"式の評価中にエラーが発生しました: {e}")
+  
+  return df
+
+def parse_stat_expression(expression_str):
+  '''種族値の数式を解析して辞書を返す
+  Parameters:
+  ----------
+  expression_str : str
+    条件式の文字列（例：'H>=100'、'(H*B*D)/(B+D)<26825'、'A==C'、'合計<550'）
+  
+  Returns:
+  ----------
+  dict
+    解析結果の辞書
+  '''
+  try:
+    # 合計値の検出（例: 合計<550）
+    if expression_str.startswith('合計'):
+      op_match = re.search(r'([><]=?|=)', expression_str)
+      if op_match:
+        op = op_match.group()
+        val = float(expression_str[op_match.end():])
+        return {
+          'type': 'total',
+          'operator': op,
+          'value': val,
+          'expression': expression_str
+        }
+      
+    # 等値比較（A==C）や複合等式（A+100==C）の特殊処理
+    equal_match = re.search(r'([=]{1,2})', expression_str)
+    if equal_match and '>' not in expression_str and '<' not in expression_str:
+      op_pos = equal_match.start()
+      op = equal_match.group()
+      left_expr = expression_str[:op_pos]
+      right_expr = expression_str[op_pos + len(op):]
+      
+      # 左辺と右辺に使用されている種族値を抽出
+      used_stats = []
+      for stat in BASE_STATS_DICT.keys():
+        if stat in left_expr.upper() or stat in right_expr.upper():
+          used_stats.append(stat)
+      
+      return {
+        'type': 'equality',
+        'left_expr': left_expr,
+        'right_expr': right_expr,
+        'operator': op,
+        'used_stats': used_stats,
+        'expression': expression_str
+      }
+    
+    # 単純な種族値の比較演算子の場合
+    first_char = expression_str[0].upper()
+    if first_char in BASE_STATS_DICT and not '(' in expression_str[:2]:
+      stat_key = first_char
+      col_name = BASE_STATS_DICT[stat_key]
+      rest = expression_str[1:]
+      
+      # 演算子と値を抽出
+      op_match = re.match(r'([><]=?|=)(.+)', rest)
+      if op_match:
+        op, val = op_match.groups()
+        return {
+          'type': 'simple',
+          'stat': stat_key,
+          'column': col_name,
+          'operator': op,
+          'value': float(val),
+          'expression': expression_str
+        }
+    
+    # 複雑な式の場合
+    op_match = re.search(r'([><]=?|=)', expression_str)
+    if op_match:
+      op_pos = op_match.start()
+      op = op_match.group()
+      left_expr = expression_str[:op_pos]
+      right_val = expression_str[op_pos + len(op):]
+      
+      # 使用されている種族値を抽出
+      used_stats = []
+      for stat in BASE_STATS_DICT.keys():
+        if stat in left_expr.upper():
+          used_stats.append(stat)
+      
+      return {
+        'type': 'complex',
+        'left_expr': left_expr,
+        'operator': op,
+        'right_val': right_val,
+        'used_stats': used_stats,
+        'expression': expression_str
+      }
+  
+  except Exception as e:
+    output_log(f"式の解析中にエラーが発生しました: {e}")
+  
+  return None
+
+def evaluate_stat_expression(df, expr_dict):
+  '''種族値の数式を評価してフィルタリングする
+  Parameters:
+  ----------
+  df : pd.DataFrame
+    フィルタリング対象のデータフレーム
+  expr_dict : dict
+    parse_stat_expressionから返される辞書
+  
+  Returns:
+  ----------
+  df : pd.DataFrame
+    フィルタリング後のデータフレーム
+  '''
+  
+  if not expr_dict:
+    return df
+  
+  try:
+    if expr_dict['type'] == 'total':
+      # 合計値でのフィルタリング
+      op = expr_dict['operator']
+      val = expr_dict['value']
+      
+      if op == '>=':
+        return df[df['合計'] >= val]
+      elif op == '>':
+        return df[df['合計'] > val]
+      elif op == '<=':
+        return df[df['合計'] <= val]
+      elif op == '<':
+        return df[df['合計'] < val]
+      elif op == '=' or op == '==':
+        return df[df['合計'] == val]
+
+    elif expr_dict['type'] == 'simple':
+      # 単純な種族値の比較
+      col = expr_dict['column']
+      op = expr_dict['operator']
+      val = expr_dict['value']
+      
+      if op == '>=':
+        return df[df[col] >= val]
+      elif op == '>':
+        return df[df[col] > val]
+      elif op == '<=':
+        return df[df[col] <= val]
+      elif op == '<':
+        return df[df[col] < val]
+      elif op == '=' or op == '==':
+        return df[df[col] == val]
+      
+    elif expr_dict['type'] == 'equality':
+      # 等式の評価（例: A==C, A+100==C）
+      left_expr = preprocess_expression(expr_dict['left_expr'])
+      right_expr = preprocess_expression(expr_dict['right_expr'])
+      
+      output_log(f"等式の評価: {left_expr} == {right_expr}")
+      
+      # 各行ごとに式を評価
+      results = []
+      for _, row in df.iterrows():
+        # 左辺の式を評価
+        left_calc = left_expr
+        for stat in BASE_STATS_DICT.keys():
+          if stat in left_calc.upper():
+            col_name = BASE_STATS_DICT[stat]
+            left_calc = re.sub(r'\b' + stat + r'\b', str(row[col_name]), left_calc, flags=re.IGNORECASE)
+        
+        # 右辺の式を評価
+        right_calc = right_expr
+        for stat in BASE_STATS_DICT.keys():
+          if stat in right_calc.upper():
+            col_name = BASE_STATS_DICT[stat]
+            right_calc = re.sub(r'\b' + stat + r'\b', str(row[col_name]), right_calc, flags=re.IGNORECASE)
+        
+        # 両辺を評価して比較
+        try:
+          left_result = eval(left_calc)
+          right_result = eval(right_calc)
+          results.append(left_result == right_result)
+        except Exception as e:
+          output_log(f"等式評価中のエラー: {e} 左辺: {left_calc} 右辺: {right_calc}")
+          results.append(False)
+      
+      # フィルタリング
+      return df[results]
+      
+    elif expr_dict['type'] == 'complex':
+      # 複雑な式の評価
+      left_expr = preprocess_expression(expr_dict['left_expr'])
+      op = expr_dict['operator']
+      
+      # 右辺が数値か式か判断
+      try:
+        right_val = float(expr_dict['right_val'])
+        is_numeric_right = True
+      except:
+        right_val = preprocess_expression(expr_dict['right_val'])
+        is_numeric_right = False
+      
+      output_log(f"前処理済み式: {left_expr} {op} {right_val}")
+      
+      # 各行ごとに式を評価
+      results = []
+      for _, row in df.iterrows():
+        # 式中の種族値を実際の値に置換
+        calc_expr = left_expr
+        for stat in BASE_STATS_DICT.keys():
+          if stat in calc_expr.upper():
+            col_name = BASE_STATS_DICT[stat]
+            calc_expr = re.sub(r'\b' + stat + r'\b', str(row[col_name]), calc_expr, flags=re.IGNORECASE)
+        
+        # 右辺が式の場合は評価
+        if not is_numeric_right:
+          right_calc = right_val
+          for stat in BASE_STATS_DICT.keys():
+            if stat in right_calc.upper():
+              col_name = BASE_STATS_DICT[stat]
+              right_calc = re.sub(r'\b' + stat + r'\b', str(row[col_name]), right_calc, flags=re.IGNORECASE)
+          try:
+            right_val_eval = eval(right_calc)
+          except Exception as e:
+            output_log(f"右辺評価中のエラー: {e} 式: {right_calc}")
+            results.append(False)
+            continue
+        else:
+          right_val_eval = right_val
+        
+        # 評価
+        try:
+          left_result = eval(calc_expr)
+          
+          # 比較演算
+          if op == '>=':
+            results.append(left_result >= right_val_eval)
+          elif op == '>':
+            results.append(left_result > right_val_eval)
+          elif op == '<=':
+            results.append(left_result <= right_val_eval)
+          elif op == '<':
+            results.append(left_result < right_val_eval)
+          elif op == '=' or op == '==':
+            results.append(left_result == right_val_eval)
+          else:
+            results.append(False)
+        except Exception as e:
+          output_log(f"行の評価中にエラー: {e} 式: {calc_expr}")
+          results.append(False)
+      
+      # フィルタリング
+      return df[results]
+  
+  except Exception as e:
+    output_log(f"式の評価中にエラーが発生しました: {e}")
+  
+  return df
+
+def preprocess_expression(expr):
+  '''数式を前処理して、Python構文に合わせる
+  Parameters:
+  ----------
+  expr : str
+    元の数式
+  
+  Returns:
+  ----------
+  str
+    処理後の数式
+  '''
+  # 数値に変換可能な場合はそのまま返す
+  try:
+    float(expr)
+    return expr
+  except:
+    pass
+  
+  # 掛け算の * を明示的に挿入（例: (A+B)(C+D) → (A+B)*(C+D)）
+  processed = re.sub(r'\)(\()', ')*(', expr)
+  
+  # 種族値の後に直接カッコがある場合も * を挿入（例: H(B+D) → H*(B+D)）
+  for stat in set(list(BASE_STATS_DICT.keys()) + [k.lower() for k in BASE_STATS_DICT.keys()]):
+    processed = re.sub(r'(' + re.escape(stat) + r')(\()', r'\1*\2', processed)
+  
+  # 数字の後にカッコがある場合も * を挿入（例: 2(B+D) → 2*(B+D)）
+  processed = re.sub(r'(\d)(\()', r'\1*\2', processed)
+  
+  return processed
+  '''数式を前処理して、Python構文に合わせる
+  Parameters:
+  ----------
+  expr : str
+    元の数式
+  
+  Returns:
+  ----------
+  str
+    処理後の数式
+  '''
+  # 掛け算の * を明示的に挿入（例: (A+B)(C+D) → (A+B)*(C+D)）
+  processed = re.sub(r'\)(\()', ')*(', expr)
+  
+  # 種族値の後に直接カッコがある場合も * を挿入（例: H(B+D) → H*(B+D)）
+  for stat in set(list(BASE_STATS_DICT.keys()) + [k.lower() for k in BASE_STATS_DICT.keys()]):
+    processed = re.sub(r'(' + re.escape(stat) + r')(\()', r'\1*\2', processed)
+  
+  return processed
+
+def search_pokemon(filter_dict):
+  '''フィルター条件に基づいてポケモンを検索し、結果と適用された条件を返す
+  Parameters:
+  ----------
+  filter_dict : dict
+    フィルタリング条件の辞書
+  
+  Returns:
+  ----------
+  tuple
+    (filtered_df, processed_conditions)
+  '''
+  output_log("以下の条件でデータベースをフィルタリングします\n "+str(filter_dict))
+  filteredPokeData = GLOBAL_BRELOOM_DF.copy()
+  
+  # 表示用の処理済み条件辞書
+  processed_conditions = {}
+  
+  # 数式によるフィルタリング
+  if 'STAT_EXPRESSION' in filter_dict:
+    for expression_str in filter_dict['STAT_EXPRESSION']:
+      expr_dict = parse_stat_expression(expression_str)
+      if expr_dict:
+        # フィルタリングを実行
+        filteredPokeData = evaluate_stat_expression(filteredPokeData, expr_dict)
+        
+        # 条件を表示用に整理
+        if expr_dict['type'] == 'total':
+          # 合計値条件
+          if '合計' not in processed_conditions:
+            processed_conditions['合計'] = []
+          processed_conditions['合計'].append(expression_str)
+        elif expr_dict['type'] == 'simple':
+          # 単純な種族値比較（例: H>=100）
+          stat_key = expr_dict['stat'].upper() if 'stat' in expr_dict else expression_str[0].upper()
+          if stat_key in BASE_STATS_DICT:
+            stat_name = BASE_STATS_DICT[stat_key]
+            if stat_name not in processed_conditions:
+              processed_conditions[stat_name] = []
+            
+            # 表示用に整形（A→こうげき）
+            display_expr = expression_str
+            display_expr = re.sub(r'^' + re.escape(stat_key), stat_name, display_expr, flags=re.IGNORECASE)
+            processed_conditions[stat_name].append(display_expr)
+        elif expr_dict['type'] == 'equality':
+          # 等値比較（例: A==C）
+          if '数式' not in processed_conditions:
+            processed_conditions['数式'] = []
+          
+          # 使いやすい形式に変換（A→こうげき）
+          display_expr = expression_str
+          for stat, col_name in BASE_STATS_DICT.items():
+            display_expr = re.sub(r'\b' + re.escape(stat) + r'\b', col_name, display_expr, flags=re.IGNORECASE)
+          
+          processed_conditions['数式'].append(display_expr)
+        else:
+          # 複雑な数式（例: (H*B*D)/(B+D)<26825）
+          if '数式' not in processed_conditions:
+            processed_conditions['数式'] = []
+            
+          # 使いやすい形式に変換（A→こうげき）
+          display_expr = expression_str
+          for stat, col_name in BASE_STATS_DICT.items():
+            display_expr = re.sub(r'\b' + re.escape(stat) + r'\b', col_name, display_expr, flags=re.IGNORECASE)
+          
+          processed_conditions['数式'].append(display_expr)
+  
+  # 通常のフィルタリング
+  for key, value in filter_dict.items():
+    if key == 'STAT_EXPRESSION':
+      continue  # 数式は既に処理済み
+    
+    if key == 'タイプ':
+      filteredPokeData = filteredPokeData[(filteredPokeData['タイプ1'].isin(value)) | (filteredPokeData['タイプ2'].isin(value))]
+      processed_conditions['タイプ'] = value
+    elif key == '特性':
+      filteredPokeData = filteredPokeData[(filteredPokeData['特性1'].isin(value)) | (filteredPokeData['特性2'].isin(value)) | (filteredPokeData['隠れ特性'].isin(value))]
+      processed_conditions['特性'] = value
+    else:
+      processed_conditions[key] = value
+      try:
+        if len(value) > 0 and all(isinstance(v, str) and v.isdecimal() for v in value):
+          filteredPokeData = filteredPokeData[filteredPokeData[key].isin([int(v) for v in value])]
+        else:
+          filteredPokeData = filteredPokeData[filteredPokeData[key].isin(value)]
+      except:
+        filteredPokeData = filteredPokeData[filteredPokeData[key].isin(value)]
+      
+  output_log("データのフィルタリングが完了しました 取得行数: "+str(filteredPokeData.shape[0]))
+  output_log(f"処理済みの条件: {processed_conditions}")
+  
+  return (filteredPokeData, processed_conditions)
