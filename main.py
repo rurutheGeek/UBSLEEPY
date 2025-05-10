@@ -838,39 +838,47 @@ async def slash_simil(interaction: discord.Interaction, name: str, evolution: st
     
     ub.output_log(f"種族値類似度ランキングを実行します: {base_name} ({evolution_text}ポケモン上位{limit}匹)")
     
-    # 全ポケモンとの類似度を計算
-    similarity_data = []
-    for _, row in filtered_df.iterrows():
-        # 同じポケモンはスキップ
-        if row['おなまえ'] == base_name:
-            continue
-            
-        # 種族値を取得
-        comp_bss = np.array([
-            int(row['HP']),
-            int(row['こうげき']),
-            int(row['ぼうぎょ']),
-            int(row['とくこう']),
-            int(row['とくぼう']),
-            int(row['すばやさ'])
-        ])
-        
-        # ユークリッド距離で類似度を計算 (値が小さいほど似ている)
-        distance = np.sqrt(np.sum((base_bss - comp_bss) ** 2))
-        
-        similarity_data.append({
+    # 比較対象ステータス列
+    cols = ['HP', 'こうげき', 'ぼうぎょ', 'とくこう', 'とくぼう', 'すばやさ']
+
+    # 入力ポケモンの種族値 (1D array, shape=(6,))
+    base_bss = np.array([
+        int(base_pokemon.iloc[0]['HP']),
+        int(base_pokemon.iloc[0]['こうげき']),
+        int(base_pokemon.iloc[0]['ぼうぎょ']),
+        int(base_pokemon.iloc[0]['とくこう']),
+        int(base_pokemon.iloc[0]['とくぼう']),
+        int(base_pokemon.iloc[0]['すばやさ'])
+    ])
+
+    # 比較対象行列 (shape=(N,6))
+    comp_mat = filtered_df[cols].astype(int).to_numpy()
+
+    # ユークリッド距離計算 (各行との差分のノルム)
+    diffs = comp_mat - base_bss          # shape=(N,6)
+    distances = np.linalg.norm(diffs, axis=1)  # shape=(N,)
+
+    # 結果 DataFrame を作成
+    filtered_df = filtered_df.assign(distance=distances)
+
+    # 自身を除外
+    filtered_df = filtered_df[filtered_df['おなまえ'] != base_name]
+
+    # 距離でソート
+    top_df = filtered_df.nsmallest(limit, 'distance')
+
+    # 上位データをリスト化
+    top_similar = [
+        {
             'name': row['おなまえ'],
             'dexnum': row['ぜんこくずかんナンバー'],
-            'distance': distance,
-            'bss': comp_bss,
+            'distance': row['distance'],
+            'bss': np.array([row[col] for col in cols]),
             'evolution': row['進化段階']
-        })
-    
-    # 距離でソート (小さい順 = 類似度が高い順)
-    similarity_data.sort(key=lambda x: x['distance'])
-    
-    # 上位のポケモンを取得 (limitで指定された数まで)
-    top_similar = similarity_data[:limit]
+        }
+        for _, row in top_df.iterrows()
+    ]
+
     
     # 画像表示用のポケモン (入力ポケモン + 上位5匹)
     display_pokemon = [{'name': base_name, 'dexnum': base_dexnum, 'bss': base_bss}]
