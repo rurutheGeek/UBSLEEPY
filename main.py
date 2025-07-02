@@ -19,13 +19,14 @@ import discord
 from discord.ext import tasks
 import pandas as pd
 import numpy as np
-import jaconv  # type: ignore
-from dotenv import load_dotenv  # type: ignore
+import jaconv
+from dotenv import load_dotenv
 
 # 分割されたモジュール
 from bot_module.config import *
 import bot_module.func as ub
 import bot_module.embed as ub_embed
+import bot_module.searcher as ub_searcher
 
 # ===================================================================================================
 # 事前設定
@@ -62,7 +63,8 @@ async def on_ready():
             f"登録済のサーバーを{len(GUILD_IDS)}個読み込みました{syncGuildName}"
         )
 
-    BQ_FILTERED_DF = ub.filter_dataframe(BQ_FILTER_DICT).fillna("なし")
+    searcher = ub_searcher.PokemonSearcher()
+    BQ_FILTERED_DF = searcher.search(BQ_FILTER_DICT)[0].fillna("なし")
 
     # 定期処理の開始
     if not post_logs.is_running():
@@ -93,6 +95,19 @@ async def on_ready():
 # ===================================================================================================
 # テスト処理
 
+@tree.command(name="search", description="タイプや特性などの条件でポケモンを検索します")
+@discord.app_commands.guilds(*[discord.Object(id=guild_id) for guild_id in GUILD_IDS])
+@discord.app_commands.describe(
+    query="スペース区切りで検索条件を指定（例: はがね むし テクニシャン ジョウト）省略で検索案内を表示"
+)
+async def slash_search(interaction: discord.Interaction, query: str = None):
+    """ポケモン検索コマンド"""
+    if query:
+        # 直接検索条件が指定された場合
+        await ub_searcher.perform_search(interaction, query.split())
+    else:
+        # 検索UIを表示
+        await ub_searcher.show_search_ui(interaction)
 
 
 # ===================================================================================================
@@ -238,7 +253,8 @@ async def display_pokedex(interaction, name, message=None):
         # 種族値グラフの生成と設定
         bss = [dexH, dexA, dexB, dexC, dexD, dexS]
         graph_path = ub.generate_graph(bss=bss, name=dexName)
-        filename = f"basestats_{dexNumber}_{jaconv.kata2alphabet(jaconv.hira2kata(dexName)).lower()}.png"
+        #filename = f"basestats_{dexNumber}_{jaconv.kata2alphabet(jaconv.hira2kata(dexName)).lower()}.png"
+        filename = f"basestats_graph.png"
         attach_graph = discord.File(graph_path, filename=filename)
         dexEmbed.set_image(url=f"attachment://{filename}")
         
@@ -1040,7 +1056,10 @@ async def on_message(message):
 
             # インデックスの要素が更新されていない項目はそのまま
             BQ_FILTER_DICT.update(ub.make_filter_dict(bqFilterWords))
-            BQ_FILTERED_DF = ub.filter_dataframe(BQ_FILTER_DICT).fillna("なし")
+
+            searcher = ub_searcher.PokemonSearcher()
+            BQ_FILTERED_DF = searcher.search(BQ_FILTER_DICT)[0].fillna("なし")
+
             response = "種族値クイズの出題条件が変更されました"
             ub.output_log("出題条件が更新されました")
 
@@ -1154,313 +1173,324 @@ async def on_member_join(member):
 
 @client.event
 async def on_interaction(interaction: discord.Interaction):
-    if "custom_id" in interaction.data and interaction.data["custom_id"] == "authModal":
-        ub.output_log("学籍番号を処理します")
-        listPath = MEMBERDATA_PATH
-        studentId = interaction.data["components"][0]["components"][0]["value"]
+    ub.output_log(f"{interaction.user.name}: interaction\n{interaction.data} ")
 
-        if (
-            (studentId := studentId.upper()).startswith(
-                ("S", "A", "C", "J", "D", "B", "E", "G")
-            )
-            and re.match(r"^[A-Z0-9]+$", studentId)
-            and len(studentId) == 7
-        ):
-            member = interaction.user
-            role = interaction.guild.get_role(UNKNOWN_ROLE_ID)
-            favePokeName = interaction.data["components"][1]["components"][0]["value"]
-            response = "登録を修正したい場合はもう一度ボタンを押してください"
-
-            if role in member.roles:  # ロールを持っていれば削除
-                await member.remove_roles(role)
-                response += "\nサーバーが利用可能になりました"
-                ub.output_log(f"学籍番号が登録されました\n {member.name}: {studentId}")
-            else:
-                ub.output_log(
-                    f"登録の修正を受け付けました\n {member.name}: {studentId}"
-                )
-            response += "\n`※このメッセージはあなたにしか表示されていません`"
-
-            thanksEmbed = discord.Embed(
-                title="登録ありがとうございました", color=0x2EAFFF, description=response
-            )
-            thanksEmbed.add_field(name="登録した学籍番号", value=studentId)
-            thanksEmbed.add_field(
-                name="好きなポケモン",
-                value=favePokeName if not favePokeName == "" else "登録なし",
-            )
-
-            if not favePokeName == "":
-                if (favePokedata := ub.fetch_pokemon(favePokeName)) is not None:
-                    favePokeName = favePokedata.iloc[0]["おなまえ"]
-
-            times = datetime.now(ZoneInfo("Asia/Tokyo")).strftime("%Y/%m/%d %H:%M:%S")
-            authData = {
-                "登録日時": [times],
-                "ユーザーID": [str(member.id)],
-                "ユーザー名": [member.name],
-                "学籍番号": [studentId],
-                "好きなポケモン": [favePokeName],
-            }
-            df = pd.DataFrame(authData)
-            df.to_csv(
-                MEMBERLIST_PATH,
-                mode="a",
-                index=False,
-                header=not os.path.exists(MEMBERLIST_PATH),
-            )
-
-            content = "照合に失敗しました ?\n※メンバーリストにまだ学籍番号のデータがない可能性があります"
-            if os.path.exists(listPath):
-                member_df = pd.read_csv(listPath).set_index("学籍番号")
-                if studentId in member_df.index:
-                    memberData = pd.DataFrame(
-                        {
-                            "ユーザーID": [member.id],
-                            "ユーザー名": [member.name],
-                            "好きなポケモン": [favePokeName],
-                        },
-                        index=[studentId],
-                    ).iloc[0]
-                    member_df.loc[studentId] = memberData
-                    member_df["ユーザーID"] = (
-                        member_df["ユーザーID"]
-                        .dropna()
-                        .replace([np.inf, -np.inf], np.nan)
-                        .dropna()
-                        .astype(int)
-                    )
-
-                    member_df.to_csv(listPath, index=True, float_format="%.0f")
-                    content = "照合に成功しました"
-                    ub.output_log(
-                        f"サークルメンバー照合ができました\n {studentId}: {member.name}"
-                    )
-                else:
-                    ub.output_log(
-                        f"サークルメンバー照合ができませんでした\n {studentId}: {member.name}"
-                    )
-            else:
-                ub.output_log(f"認証用   ファイルが存在しません: {listPath}")
-
-            await interaction.response.send_message(
-                content, embed=thanksEmbed, ephemeral=True
-            )
-
-        else:  # 学籍番号が送信されなかった場合の処理
-            ub.output_log(f"学籍番号として認識されませんでした: {studentId}")
-            errorEmbed = discord.Embed(
-                title="401 Unauthorized",
-                color=0xFF0000,
-                description=f"あなたの入力した学籍番号: **{studentId}**\n申し訳ございませんが、もういちどお試しください。",
-            )
-            errorEmbed.set_author(
-                name="Porygon-Z.com", url="https://wiki.ポケモン.com/wiki/ポリゴンZ"
-            )
-            errorEmbed.set_thumbnail(url=f"{EX_SOURCE_LINK}art/474.png")
-            errorEmbed.add_field(
-                name="入力形式は合っていますか?",
-                value="半角英数字7ケタで入力してください",
-                inline=False,
-            )
-            errorEmbed.add_field(
-                name="工学院生ではありませんか?",
-                value="個別にご相談ください",
-                inline=False,
-            )
-            errorEmbed.add_field(
-                name="解決しない場合",
-                value=f"管理者にお問い合わせください: <@!{DEVELOPER_USER_ID}>",
-                inline=False,
-            )
-            await interaction.response.send_message(embed=errorEmbed, ephemeral=True)
-    #ボタン
-    elif (
-        "component_type" in interaction.data and interaction.data["component_type"] == 2
-    ):
-        ub.output_log(
-            f'buttonが押されました\n {interaction.user.name}: {interaction.data["custom_id"]}'
-        )
-        await on_button_click(interaction)
-
-    #セレクトメニュー    
-    elif "component_type" in interaction.data and interaction.data["component_type"] == 3:
-        custom_id = interaction.data[
-            "custom_id"
-        ]  # custom_id(インタラクションの識別子)を取り出す
-        if custom_id.startswith("dex_form:"):
-            base_dex_num = custom_id.split(":")[1]
-            selected_form = interaction.data["values"][0]  # 選択された姿違いの図鑑番号
-            
-            # 選択された姿違いのポケモンデータを取得
-            form_data = GLOBAL_BRELOOM_DF[GLOBAL_BRELOOM_DF["ぜんこくずかんナンバー"] == selected_form]
-            
-            if not form_data.empty:
-                selected_name = form_data.iloc[0]["おなまえ"]
+    if "custom_id" in interaction.data:
+        if "component_type" in interaction.data:
+            match interaction.data["component_type"]:
+                case 2:
+                    await on_button_click(interaction)
                 
-                # 応答を延期
-                await interaction.response.defer()
-                
-                # 共通関数を使用して表示
-                await display_pokedex(interaction, selected_name, interaction.message)
-            else:
-                await interaction.response.send_message("該当するポケモンが見つかりませんでした", ephemeral=True)
+                case 3:
+                    await on_selectmenu_submit(interaction)
 
+                case _:
+                    pass
+
+        #モーダルが送信された場合
+        elif interaction.type == discord.InteractionType.modal_submit:
+            await on_modal_submit(interaction)
 
 async def on_button_click(interaction: discord.Interaction):
-    custom_id = interaction.data[
-        "custom_id"
-    ]  # custom_id(インタラクションの識別子)を取り出す
+    custom_id = interaction.data["custom_id"]  
 
-    if custom_id == "authButton":  # メンバー認証ボタン モーダルを送信する
-        ub.output_log("学籍番号取得を実行します")
-        authModal = discord.ui.Modal(
-            title="メンバー認証", timeout=None, custom_id="authModal"
-        )
-        authInput = discord.ui.TextInput(
-            label="学籍番号",
-            placeholder="J111111",
-            min_length=7,
-            max_length=7,
-            custom_id="studentIdInput",
-        )
-        authModal.add_item(authInput)
-        favePokeInput = discord.ui.TextInput(
-            label="好きなポケモン(任意)",
-            placeholder="ヤブクロン",
-            required=False,
-            custom_id="favePokeInput",
-        )
-        authModal.add_item(favePokeInput)
-        await interaction.response.send_modal(authModal)
-
-    elif custom_id.startswith("lotoIdButton"):  # IDくじボタン
-        ub.output_log("IDくじを実行します")
-        # カスタムIDは,"lotoIdButton:00000:0000/00/00"という形式
-        lotoId = custom_id.split(":")[1]
-        birth = custom_id.split(":")[2]
-        now = datetime.now(ZoneInfo("Asia/Tokyo"))
-        today = now.date()
-        if now.hour < 5:
-            today = today - timedelta(days=1)
-
-        if not birth == str(today):
-            # 過去に投稿されたくじの場合
-            await interaction.response.send_message(
-                f"それは 今日のIDくじ じゃないロ{EXCLAMATION_ICON}", ephemeral=True
+    match custom_id:
+        case "authButton": # メンバー認証ボタンが押された場合
+            ub.output_log("学籍番号取得を実行します")
+            authModal = discord.ui.Modal(
+                title="メンバー認証", timeout=None, custom_id="authModal"
             )
-        elif ub.report(interaction.user.id, "クジびきけん", 0) == 0:
-            # すでにくじを引いている場合
-            await interaction.response.send_message(
-                "くじが ひけるのは 1日1回 まで なんだロ……", ephemeral=True
+            authInput = discord.ui.TextInput(
+                label="学籍番号",
+                placeholder="J111111",
+                min_length=7,
+                max_length=7,
+                custom_id="studentIdInput",
             )
-        else:
-            userId = str(interaction.user.id)[-6:].zfill(5)  # ID下6ケタを取得
+            authModal.add_item(authInput)
+            favePokeInput = discord.ui.TextInput(
+                label="好きなポケモン(任意)",
+                placeholder="ヤブクロン",
+                required=False,
+                custom_id="favePokeInput",
+            )
+            authModal.add_item(favePokeInput)
+            await interaction.response.send_modal(authModal)  
+        case "search_execute_button":  # 検索実行ボタンが押された場合
+            # Embedからクエリフィールドの内容を取得
+            embed = interaction.message.embeds[0]
+            query_field = embed.fields[0]
+            query_text = query_field.value.strip("```\n")
+            
+            # クエリが空か(なし)の場合はエラーメッセージを表示
+            if query_text == "" or query_text == "(なし)":
+                await interaction.response.send_message(
+                    "検索条件が指定されていません。タイプや世代などを選択してください。",
+                    ephemeral=True
+                )
+                return
+            
+            # クエリを空白で分割して検索実行
+            filter_words = query_text.split()
+            await ub_searcher.perform_search(interaction, filter_words)
+            
+        case "search_reset_button":  # 検索リセットボタンが押された場合
+            # 現在のEmbedを取得して条件を初期化
+            embed = interaction.message.embeds[0]
+            embed.set_field_at(
+                0,
+                name="現在の検索条件",
+                value="```\n(なし)\n```",
+                inline=False
+            )
+            # メッセージを更新
+            await interaction.response.edit_message(embed=embed)
+            
+        case "search_modal_button":  # クエリ直接入力ボタンが押された場合
+            # 現在のクエリを取得
+            embed = interaction.message.embeds[0]
+            current_query = embed.fields[0].value.strip("```\n")
+            if current_query == "(なし)":
+                current_query = ""
+            
+            # モーダルの作成
+            search_modal = discord.ui.Modal(title="検索条件の入力", custom_id="search_modal")
+            
+            # 検索条件入力フィールド
+            search_input = discord.ui.TextInput(
+                label="検索条件を入力",
+                placeholder="例: みず はがね ふゆう 8",
+                style=discord.TextStyle.paragraph,
+                default=current_query,
+                custom_id="search_input",
+                required=True
+            )
+            search_modal.add_item(search_input)
+            
+            await interaction.response.send_modal(search_modal)
+        case "search_new_button": # 新しい検索ボタンが押された場合
+            # 検索UIを表示
+            await ub_searcher.show_search_ui(interaction)
+        case "search_reset_button": # 検索リセットボタンが押された場合
+            # 検索UIを再表示
+            await ub_searcher.show_search_ui(interaction)
+        case "search_modal_button": # 検索モーダルボタンが押された場合
+            # 検索条件入力用のモーダルを表示
+            search_modal = discord.ui.Modal(title="ポケモンサーチャー", custom_id="search_modal")
+            
+            # 検索条件入力フィールド
+            search_input = discord.ui.TextInput(
+                label="検索条件を入力",
+                placeholder="例: みず はがね 特性:てんねん 世代:8",
+                style=discord.TextStyle.paragraph,
+                custom_id="",
+                required=True
+            )
+            search_modal.add_item(search_input)
+            
+            await interaction.response.send_modal(search_modal)
+        case _:
+            if custom_id.startswith("lotoIdButton"): # IDくじボタン処理
+                ub.output_log("IDくじを実行します")
+                # カスタムIDは,"lotoIdButton:00000:0000/00/00"という形式
 
-            matchCount = 0
-            for i in range(1, 6):
-                if userId[-i] == lotoId[-i]:
-                    matchCount += 1
+                lotoId = custom_id.split(":")[1]
+                birth = custom_id.split(":")[2]
+                now = datetime.now(ZoneInfo("Asia/Tokyo"))
+                today = now.date()
+                if now.hour < 5:
+                    today = today - timedelta(days=1)
+
+                if not birth == str(today):
+                    # 過去に投稿されたくじの場合
+                    await interaction.response.send_message(
+                        f"それは 今日のIDくじ じゃないロ{EXCLAMATION_ICON}", ephemeral=True
+                    )
+                elif ub.report(interaction.user.id, "クジびきけん", 0) == 0:
+                    # すでにくじを引いている場合
+                    await interaction.response.send_message(
+                        "くじが ひけるのは 1日1回 まで なんだロ……", ephemeral=True
+                    )
                 else:
-                    break
+                    userId = str(interaction.user.id)[-6:].zfill(5)  # ID下6ケタを取得
 
-            matchCount = str(matchCount)
-            prize = PRIZE_DICT[matchCount]["prize"]
-            value = PRIZE_DICT[matchCount]["value"]
-            text = PRIZE_DICT[matchCount]["text"]
-            place = PRIZE_DICT[matchCount]["place"]
+                    matchCount = 0
+                    for i in range(1, 6):
+                        if userId[-i] == lotoId[-i]:
+                            matchCount += 1
+                        else:
+                            break
 
-            pocketMoney = ub.report(interaction.user.id, "おこづかい", value)
+                    matchCount = str(matchCount)
+                    prize = PRIZE_DICT[matchCount]["prize"]
+                    value = PRIZE_DICT[matchCount]["value"]
+                    text = PRIZE_DICT[matchCount]["text"]
+                    place = PRIZE_DICT[matchCount]["place"]
 
-            dialogText = f"\n"
+                    pocketMoney = ub.report(interaction.user.id, "おこづかい", value)
 
-            try:
-                # おこづかいランキングを確認し,1位になっていた場合ロールを付与する
-                df = pd.read_csv(REPORT_PATH, dtype={"ユーザーID": str})
-                user_wallet = df[["ユーザーID", "おこづかい"]]
-                user_wallet_sorted = user_wallet.sort_values(
-                    by="おこづかい", ascending=False
-                ).reset_index(drop=True)
+                    dialogText = f"\n"
 
-                if pocketMoney == user_wallet_sorted.loc[0, "おこづかい"]:
-                    dialogText = f"ロロ{EXCLAMATION_ICON}{interaction.guild.name}で いちばんの おかねもち だロト{EXCLAMATION_ICON}\n"
-                    # おかねもちロール付与の処理
-                    menymoneyRole = interaction.user.guild.get_role(MENYMONEY_ROLE_ID)
-                    if menymoneyRole not in interaction.user.roles:
-                        ub.output_log(
-                            f"おこづかい一位が変わりました: {interaction.user.name}"
-                        )
-                        await interaction.user.add_roles(menymoneyRole)
-                        ub.output_log(
-                            f"ロールを付与しました: {interaction.user.name}に{menymoneyRole.name}"
-                        )
+                    try:
+                        # おこづかいランキングを確認し,1位になっていた場合ロールを付与する
+                        df = pd.read_csv(REPORT_PATH, dtype={"ユーザーID": str})
+                        user_wallet = df[["ユーザーID", "おこづかい"]]
+                        user_wallet_sorted = user_wallet.sort_values(
+                            by="おこづかい", ascending=False
+                        ).reset_index(drop=True)
 
-                    # 2位以下のおかねもちロールを剥奪する処理
-                    for i in range(0, len(user_wallet_sorted)):
-                        lowerUser = interaction.guild.get_member(
-                            int(user_wallet_sorted.loc[i, "ユーザーID"])
-                        )
-                        # インタラクションユーザーには実施しない
-                        if lowerUser and not interaction.user == lowerUser:
-                            if pocketMoney > user_wallet_sorted.loc[i, "おこづかい"]:
-                                if menymoneyRole in lowerUser.roles:
-                                    await lowerUser.remove_roles(menymoneyRole)
-                                    ub.output_log(
-                                        f"ロールを剥奪しました: {lowerUser.name}から{menymoneyRole.name}"
-                                    )
-                                else:
-                                    break
+                        if pocketMoney == user_wallet_sorted.loc[0, "おこづかい"]:
+                            dialogText = f"ロロ{EXCLAMATION_ICON}{interaction.guild.name}で いちばんの おかねもち だロト{EXCLAMATION_ICON}\n"
+                            # おかねもちロール付与の処理
+                            menymoneyRole = interaction.user.guild.get_role(MENYMONEY_ROLE_ID)
+                            if menymoneyRole not in interaction.user.roles:
+                                ub.output_log(
+                                    f"おこづかい一位が変わりました: {interaction.user.name}"
+                                )
+                                await interaction.user.add_roles(menymoneyRole)
+                                ub.output_log(
+                                    f"ロールを付与しました: {interaction.user.name}に{menymoneyRole.name}"
+                                )
 
-            except Exception as e:
-                ub.output_log(f"おこづかいランキングの処理でエラーが発生しました\n{e}")
+                            # 2位以下のおかねもちロールを剥奪する処理
+                            for i in range(0, len(user_wallet_sorted)):
+                                lowerUser = interaction.guild.get_member(
+                                    int(user_wallet_sorted.loc[i, "ユーザーID"])
+                                )
+                                # インタラクションユーザーには実施しない
+                                if lowerUser and not interaction.user == lowerUser:
+                                    if pocketMoney > user_wallet_sorted.loc[i, "おこづかい"]:
+                                        if menymoneyRole in lowerUser.roles:
+                                            await lowerUser.remove_roles(menymoneyRole)
+                                            ub.output_log(
+                                                f"ロールを剥奪しました: {lowerUser.name}から{menymoneyRole.name}"
+                                            )
+                                        else:
+                                            break
 
-            attachImage = ub.attachment_file(f"resource/image/prize/{prize}.png")
-            lotoEmbed = discord.Embed(
-                title=text,
-                color=0xFF99C2,
-                description=f"{place}の 商品 **{prize}**をプレゼントだロ{BANGBANG_ICON}\n"
-                f"{dialogText}"
-                f"それじゃあ またの 挑戦を お待ちしてるロ~~{EXCLAMATION_ICON}",
-            )
-            lotoEmbed.set_thumbnail(url=attachImage[1])
-            lotoEmbed.add_field(
-                name=f"{interaction.user.name}は {prize}を 手に入れた!",
-                value=f"売却価格: {value}えん\nおこづかい: {pocketMoney}えん",
-                inline=False,
-            )
-            lotoEmbed.set_author(name=f"あなたのID: {userId}")
-            lotoEmbed.set_footer(text="No.15 IDくじ")
+                    except Exception as e:
+                        ub.output_log(f"おこづかいランキングの処理でエラーが発生しました\n{e}")
 
-            ub.report(interaction.user.id, "クジびきけん", -1)  # クジの回数を減らす
-            await interaction.response.send_message(
-                file=attachImage[0], embed=lotoEmbed, ephemeral=True
-            )
+                    attachImage = ub.attachment_file(f"resource/image/prize/{prize}.png")
+                    lotoEmbed = discord.Embed(
+                        title=text,
+                        color=0xFF99C2,
+                        description=f"{place}の 商品 **{prize}**をプレゼントだロ{BANGBANG_ICON}\n"
+                        f"{dialogText}"
+                        f"それじゃあ またの 挑戦を お待ちしてるロ~~{EXCLAMATION_ICON}",
+                    )
+                    lotoEmbed.set_thumbnail(url=attachImage[1])
+                    lotoEmbed.add_field(
+                        name=f"{interaction.user.name}は {prize}を 手に入れた!",
+                        value=f"売却価格: {value}えん\nおこづかい: {pocketMoney}えん",
+                        inline=False,
+                    )
+                    lotoEmbed.set_author(name=f"あなたのID: {userId}")
+                    lotoEmbed.set_footer(text="No.15 IDくじ")
 
-    # ポケモン図鑑のナビゲーションボタン処理
-    elif custom_id.startswith("dex_prev:") or custom_id.startswith("dex_next:"):
-        current_number = custom_id.split(":")[1]
+                    ub.report(interaction.user.id, "クジびきけん", -1)  # クジの回数を減らす
+                    await interaction.response.send_message(
+                        file=attachImage[0], embed=lotoEmbed, ephemeral=True
+                    )
+            elif custom_id.startswith("dex_prev:") or custom_id.startswith("dex_next:"): # ポケモン図鑑のナビゲーションボタン処理
+                current_number = custom_id.split(":")[1]
+                
+                if custom_id.startswith("dex_prev:"):
+                    # 前のポケモンを表示
+                    target_number = str(int(float(current_number)) - 1)
+                else:
+                    # 次のポケモンを表示
+                    target_number = str(int(float(current_number)) + 1)
+                
+                # 目的のポケモンデータを取得
+                target_data = GLOBAL_BRELOOM_DF[GLOBAL_BRELOOM_DF["ぜんこくずかんナンバー"] == target_number]
+                
+                if len(target_data) > 0:
+                    target_name = target_data.iloc[0]["おなまえ"]
+                    
+                    # 応答を延期
+                    await interaction.response.defer()
+                    
+                    # 共通関数を使用して表示
+                    await display_pokedex(interaction, target_name, interaction.message)
+                else:
+                    await interaction.response.send_message("該当するポケモンが見つかりませんでした", ephemeral=True)
+            elif custom_id.startswith("search_prev:") or custom_id.startswith("search_next:"):
+                    # 検索ページネーション
+                    parts = custom_id.split(":")
+                    current_page = int(parts[1])
+                    total_results = int(parts[2])
+                    
+                    # メッセージの説明から検索クエリを取得
+                    query_text = interaction.message.embeds[0].description.strip()
+                    # query: プレフィックスとコードブロック記法を除去
+                    query_text = re.sub(r'^```\nquery:\s*', '', query_text)
+                    query_text = re.sub(r'\n```$', '', query_text)
+                    
+                    filter_words = query_text.split()
+                    
+                    # ページネーション処理
+                    direction = "prev" if custom_id.startswith("search_prev:") else "next"
+                    await ub_searcher.handle_pagination(interaction, current_page, direction, total_results, filter_words)
+
+
+async def on_modal_submit(interaction: discord.Interaction):
+    custom_id = interaction.data["custom_id"]  
+
+    match custom_id:
+        case "search_modal":  # 検索モーダルが送信された場合
+            search_query = interaction.data["components"][0]["components"][0]["value"]
+            
+            if search_query.strip() == "":
+                # クエリが空の場合
+                await interaction.response.send_message(
+                    "検索条件が指定されていません。",
+                    ephemeral=True
+                )
+                return
+            
+            # 元のメッセージを取得して更新
+            if hasattr(interaction, "message") and interaction.message:
+                embed = interaction.message.embeds[0]
+                embed.set_field_at(
+                    0,
+                    name="現在の検索条件",
+                    value=f"```\n{search_query}\n```",
+                    inline=False
+                )
+                await interaction.response.edit_message(embed=embed)
+                
+                # 別の応答で検索実行
+                await ub_searcher.perform_search(interaction, search_query.split())
+            else:
+                # メッセージが取得できない場合は直接検索を実行
+                await ub_searcher.perform_search(interaction, search_query.split())
+
+
+async def on_selectmenu_submit(interaction: discord.Interaction):
+    custom_id = interaction.data["custom_id"]
+
+    if custom_id.startswith("dex_form:"):
+        base_dex_num = custom_id.split(":")[1]
+        selected_form = interaction.data["values"][0]  # 選択された姿違いの図鑑番号
         
-        if custom_id.startswith("dex_prev:"):
-            # 前のポケモンを表示
-            target_number = str(int(float(current_number)) - 1)
-        else:
-            # 次のポケモンを表示
-            target_number = str(int(float(current_number)) + 1)
+        # 選択された姿違いのポケモンデータを取得
+        form_data = GLOBAL_BRELOOM_DF[GLOBAL_BRELOOM_DF["ぜんこくずかんナンバー"] == selected_form]
         
-        # 目的のポケモンデータを取得
-        target_data = GLOBAL_BRELOOM_DF[GLOBAL_BRELOOM_DF["ぜんこくずかんナンバー"] == target_number]
-        
-        if len(target_data) > 0:
-            target_name = target_data.iloc[0]["おなまえ"]
+        if not form_data.empty:
+            selected_name = form_data.iloc[0]["おなまえ"]
             
             # 応答を延期
             await interaction.response.defer()
             
             # 共通関数を使用して表示
-            await display_pokedex(interaction, target_name, interaction.message)
+            await display_pokedex(interaction, selected_name, interaction.message)
         else:
             await interaction.response.send_message("該当するポケモンが見つかりませんでした", ephemeral=True)
-
+    # searchから始まる場合
+    elif custom_id.startswith("search_"):
+        # 検索選択メニュー
+        await ub_searcher.handle_search_select_menu(interaction, custom_id, interaction.data["values"])
 
 # ボイスチャンネルへの参加・退出を検知
 @client.event
@@ -2061,7 +2091,10 @@ class quiz:
 
     def __shotgun(self, filter_dict):
         ub.output_log(f"{self.quizName}: ランダム選択を実行")
-        filteredPokeData = ub.filter_dataframe(filter_dict)  # .fillna('なし')
+        
+        searcher = ub_searcher.PokemonSearcher()
+        filteredPokeData = searcher.search(filter_dict)[0]
+        
         selectedPokeData = filteredPokeData.iloc[
             random.randint(0, filteredPokeData.shape[0] - 1)
         ]

@@ -5,6 +5,8 @@ import pandas as pd
 import sys
 import discord
 ####################################################################################################
+CONFIG_PATH = "config.json"
+DEFAULT_CONFIG_PATH = "resource/note/default_config.json"
 #グローバル変数の宣言
 QUIZ_PROCESSING_FLAG = 0  # クイズ処理中フラグ
 BAKUSOKU_MODE = True
@@ -53,6 +55,7 @@ TYPE_COLOR_DICT={}
 PRIZE_DICT={}
 DEFAULT_FILTER_DICT={}
 
+
 client = discord.Client(
     intents=discord.Intents.all(),
     activity=discord.Activity(name="研修チュウ", type=discord.ActivityType.unknown),
@@ -67,10 +70,10 @@ def load_config():
     global GLOBAL_BRELOOM_DF, BQ_FILTERED_DF, BQ_FILTER_DICT
     config_dict = []
     try:
-        with open("config.json", "r", encoding="utf-8") as file:
+        with open(CONFIG_PATH, "r", encoding="utf-8") as file:
             config_dict = json.load(file)
     except FileNotFoundError:
-        with open("document/default_config.json", "r") as default_config:
+        with open(DEFAULT_CONFIG_PATH, "r", encoding="utf-8") as default_config:
             config_dict = json.load(default_config)
 
     develop_id_dict=config_dict["DEVELOP_ID_DICT"]
