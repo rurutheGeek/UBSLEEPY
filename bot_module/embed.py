@@ -118,7 +118,7 @@ def error_401(inputId: int) -> discord.Embed:
 
 def error_404(name: str) -> discord.Embed:
     # JSONファイルを読み込みます
-    with open("document/error_embeds.json", "r", encoding="utf-8") as template_file:
+    with open("resource/note/error_embeds.json", "r", encoding="utf-8") as template_file:
         template_data = json.load(template_file)
 
     error_data = template_data["error_404"]
