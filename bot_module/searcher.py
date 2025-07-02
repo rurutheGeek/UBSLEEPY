@@ -239,7 +239,7 @@ class PokemonSearcher:
         self.current_filter = {}  # 現在の検索フィルタ
         self.current_results = []  # 現在の検索結果
         self.processed_conditions = {}  # 処理済み検索条件
-        
+
     def make_filter_dict(self, filter_words):
         """検索条件をフィルタ辞書に変換
         
@@ -247,7 +247,7 @@ class PokemonSearcher:
         ----------
         filter_words : list
             検索条件のリスト
-            
+                
         Returns:
         ----------
         dict
@@ -255,6 +255,18 @@ class PokemonSearcher:
         """
         output_log("以下の項目でフィルタ辞書を生成します\n " + str(filter_words))
         
+        # 検索条件を前処理して論理演算子を分離
+        processed_groups = self._preprocess_filter_words(filter_words)
+        
+        # 論理演算子の検出
+        logical_ops = ['|', 'OR', 'or', '&', 'AND', 'and']
+        has_logical_ops = any(any(op in word for word in group) for group in processed_groups for op in logical_ops)
+        
+        if has_logical_ops:
+            # 論理演算子が含まれている場合は専用の処理
+            return {'LOGICAL_GROUPS': processed_groups}
+        
+        # 論理演算子がない場合の通常処理
         new_dict = {}
         # 小文字も大文字も認識できるようにキーのセットを拡張
         stats_keys = set(BASE_STATS_DICT.keys()).union({k.lower() for k in BASE_STATS_DICT.keys()})
@@ -298,7 +310,7 @@ class PokemonSearcher:
         output_log("以下のフィルタ辞書を生成しました\n " + str(new_dict))
         self.current_filter = new_dict
         return new_dict
-    
+
     def search(self, filter_dict=None):
         """検索を実行して結果を保存
         
@@ -314,47 +326,51 @@ class PokemonSearcher:
         """
         if filter_dict is None:
             filter_dict = self.current_filter
-            
+                
         output_log("以下の条件でデータベースをフィルタリングします\n " + str(filter_dict))
-        filtered_df = self.database.copy()
         
-        # 表示用の処理済み条件辞書
-        processed_conditions = {}
-        
-        # 数式によるフィルタリング
-        if 'STAT_EXPRESSION' in filter_dict:
-            for expression_str in filter_dict['STAT_EXPRESSION']:
-                expr_dict = self.parse_stat_expression(expression_str)
-                if expr_dict:
-                    # フィルタリングを実行
-                    filtered_df = self.evaluate_stat_expression(filtered_df, expr_dict)
-                    
-                    # 条件を表示用に整理
-                    self.process_stat_expression_for_display(expr_dict, expression_str, processed_conditions)
-        
-        # 通常のフィルタリング
-        for key, value in filter_dict.items():
-            if key == 'STAT_EXPRESSION':
-                continue  # 数式は既に処理済み
+        # 論理演算子グループの処理
+        if 'LOGICAL_GROUPS' in filter_dict:
+            filtered_df, processed_conditions = self._search_with_logical_groups(filter_dict['LOGICAL_GROUPS'])
+        else:
+            # 通常の検索処理（既存のコード）
+            filtered_df = self.database.copy()
+            processed_conditions = {}
             
-            if key == 'タイプ':
-                filtered_df = filtered_df[(filtered_df['タイプ1'].isin(value)) | 
-                                         (filtered_df['タイプ2'].isin(value))]
-                processed_conditions['タイプ'] = value
-            elif key == '特性':
-                filtered_df = filtered_df[(filtered_df['特性1'].isin(value)) | 
-                                         (filtered_df['特性2'].isin(value)) | 
-                                         (filtered_df['隠れ特性'].isin(value))]
-                processed_conditions['特性'] = value
-            else:
-                processed_conditions[key] = value
-                try:
-                    if len(value) > 0 and all(isinstance(v, str) and v.isdecimal() for v in value):
-                        filtered_df = filtered_df[filtered_df[key].isin([int(v) for v in value])]
-                    else:
+            # 数式によるフィルタリング
+            if 'STAT_EXPRESSION' in filter_dict:
+                for expression_str in filter_dict['STAT_EXPRESSION']:
+                    expr_dict = self.parse_stat_expression(expression_str)
+                    if expr_dict:
+                        # フィルタリングを実行
+                        filtered_df = self.evaluate_stat_expression(filtered_df, expr_dict)
+                        
+                        # 条件を表示用に整理
+                        self.process_stat_expression_for_display(expr_dict, expression_str, processed_conditions)
+            
+            # 通常のフィルタリング
+            for key, value in filter_dict.items():
+                if key == 'STAT_EXPRESSION':
+                    continue  # 数式は既に処理済み
+                
+                if key == 'タイプ':
+                    filtered_df = filtered_df[(filtered_df['タイプ1'].isin(value)) | 
+                                            (filtered_df['タイプ2'].isin(value))]
+                    processed_conditions['タイプ'] = value
+                elif key == '特性':
+                    filtered_df = filtered_df[(filtered_df['特性1'].isin(value)) | 
+                                            (filtered_df['特性2'].isin(value)) | 
+                                            (filtered_df['隠れ特性'].isin(value))]
+                    processed_conditions['特性'] = value
+                else:
+                    processed_conditions[key] = value
+                    try:
+                        if len(value) > 0 and all(isinstance(v, str) and v.isdecimal() for v in value):
+                            filtered_df = filtered_df[filtered_df[key].isin([int(v) for v in value])]
+                        else:
+                            filtered_df = filtered_df[filtered_df[key].isin(value)]
+                    except:
                         filtered_df = filtered_df[filtered_df[key].isin(value)]
-                except:
-                    filtered_df = filtered_df[filtered_df[key].isin(value)]
         
         output_log("データのフィルタリングが完了しました 取得行数: " + str(filtered_df.shape[0]))
         output_log(f"処理済みの条件: {processed_conditions}")
@@ -424,23 +440,30 @@ class PokemonSearcher:
         search_embed.set_author(name="ポケモンサーチャー")
         search_embed.set_footer(text=f"No.27 ポケモンサーチャー - ページ {current_page + 1}")
         
-        # フィルター条件を表示
-        for key, values in self.processed_conditions.items():
-            if not values:
-                continue
-                
-            if isinstance(values, list):
-                value_str = ", ".join(map(str, values))
-            elif isinstance(values, str):
-                value_str = values
-            else:
-                value_str = ", ".join(map(str, values))
-                
-            search_embed.add_field(
-                name=f"条件: {key}",
-                value=f"`{value_str}`",
-                inline=True
-            )
+        # 論理式の特別処理
+        if "論理式" in self.processed_conditions and isinstance(self.processed_conditions["論理式"], list):
+            for i, expr in enumerate(self.processed_conditions["論理式"]):
+                search_embed.add_field(
+                    name=f"条件: 論理式 {i+1}",
+                    value=f"`{expr}`",
+                    inline=False
+                )
+        else:
+            # 通常の条件表示
+            for key, value in self.processed_conditions.items():
+                if not value:
+                    continue
+                    
+                if isinstance(value, list):
+                    value_str = ", ".join(map(str, value))
+                else:
+                    value_str = str(value)
+                    
+                search_embed.add_field(
+                    name=f"条件: {key}",
+                    value=f"`{value_str}`",
+                    inline=True
+                )
         
         # 結果リスト
         for result in page_results:
@@ -451,7 +474,7 @@ class PokemonSearcher:
             )
         
         return search_embed
-    
+
     def create_pagination_view(self, current_page=0, page_size=10):
         """ページネーションボタンを含むビューを生成
         
@@ -623,7 +646,6 @@ class PokemonSearcher:
             
             processed_conditions['数式'].append(display_expr)
     
-    # 以下は既存の関数をクラスメソッドとして移植したもの
     def parse_stat_expression(self, expression_str):
         '''種族値の数式を解析して辞書を返す
         Parameters:
@@ -908,5 +930,686 @@ class PokemonSearcher:
             output_log(f"式の評価中にエラーが発生しました: {e}")
         
         return df
+
+    def _make_logical_filter_dict(self, filter_words):
+        """論理演算子を含む検索条件からフィルタ辞書を生成
+        
+        Parameters:
+        ----------
+        filter_words : list
+            論理演算子を含む検索条件のリスト
+            
+        Returns:
+        ----------
+        dict
+            フィルタ辞書
+        """
+        output_log("論理演算子を含む検索条件からフィルタ辞書を生成\n " + str(filter_words))
+        
+        # 演算子の正規化（小文字のorやandを大文字に変換）
+        normalized_words = []
+        for word in filter_words:
+            if word.lower() == 'or' or word == '|':
+                normalized_words.append('OR')
+            elif word.lower() == 'and' or word == '&':
+                normalized_words.append('AND')
+            else:
+                normalized_words.append(word)
+        
+        # 半角スペースで区切られた部分は全てANDで結合される
+        # 論理演算子の処理を変更して、半角スペース区切りをANDとして扱う
+        restructured_logical_expr = {'AND_groups': []}
+        
+        # 複数のANDグループに分割
+        current_group = []
+        
+        for word in normalized_words:
+            current_group.append(word)
+        
+        restructured_logical_expr['AND_groups'].append(current_group)
+        
+        return {'LOGICAL_EXPR': restructured_logical_expr}
+
+    def _search_with_logical_operators(self, logical_expr):
+        """論理演算子を含む検索条件を処理
+        
+        Parameters:
+        ----------
+        logical_expr : dict
+            論理演算子を含む構造化された検索条件
+            
+        Returns:
+        ----------
+        tuple
+            (検索結果のDataFrame, 処理済み検索条件)
+        """
+        output_log(f"論理演算子を含む検索条件を処理\n {logical_expr}")
+        
+        # 結果のDataFrameを初期化
+        result_df = self.database.copy()
+        processed_conditions = {}
+        
+        # ANDグループを処理
+        for and_group in logical_expr['AND_groups']:
+            output_log(f"ANDグループを処理: {and_group}")
+            
+            # OR条件を処理するためのDataFrameを作成
+            or_dfs = []
+            or_conditions = []
+            
+            # ORグループに分割
+            or_group = []
+            current_cond = []
+            
+            for i, word in enumerate(and_group):
+                if word == 'OR':
+                    # ORの前の条件を処理
+                    if current_cond:
+                        or_group.append(current_cond)
+                        current_cond = []
+                else:
+                    current_cond.append(word)
+                
+                # 最後の要素を処理
+                if i == len(and_group) - 1 and current_cond:
+                    or_group.append(current_cond)
+            
+            # ORグループがない場合は、全体を1つのグループとして扱う
+            if not or_group:
+                or_group = [and_group]
+            
+            output_log(f"ORグループ: {or_group}")
+            
+            # 各OR条件を処理
+            for cond in or_group:
+                # スペースでAND結合された条件をさらに整理
+                if 'OR' in cond:
+                    # 'OR'を含む場合は再帰的に処理
+                    subconds = []
+                    current_subcond = []
+                    
+                    for word in cond:
+                        if word == 'OR':
+                            if current_subcond:
+                                subconds.append(current_subcond)
+                                current_subcond = []
+                        else:
+                            current_subcond.append(word)
+                    
+                    if current_subcond:
+                        subconds.append(current_subcond)
+                    
+                    # 各サブ条件を処理して結果をOR結合
+                    sub_dfs = []
+                    sub_conditions = []
+                    
+                    for subcond in subconds:
+                        filter_dict = self._convert_to_filter_dict(subcond)
+                        sub_df, sub_cond = self._search_without_logical(filter_dict)
+                        sub_dfs.append(sub_df)
+                        sub_conditions.append(sub_cond)
+                    
+                    # OR結合
+                    or_df = pd.concat(sub_dfs).drop_duplicates() if sub_dfs else pd.DataFrame()
+                    or_condition = " OR ".join([str(c) for c in sub_conditions])
+                    
+                    or_dfs.append(or_df)
+                    or_conditions.append(or_condition)
+                else:
+                    # 単純な条件
+                    filter_dict = self._convert_to_filter_dict(cond)
+                    or_df, or_condition = self._search_without_logical(filter_dict)
+                    or_dfs.append(or_df)
+                    or_conditions.append(or_condition)
+            
+            # OR条件を結合
+            or_combined_df = pd.concat(or_dfs).drop_duplicates() if or_dfs else pd.DataFrame()
+            
+            # ANDで絞り込み
+            result_df = result_df[result_df.index.isin(or_combined_df.index)]
+            
+            # 処理済み条件を更新
+            or_combined_condition = " OR ".join([str(c) for c in or_conditions])
+            processed_conditions.update({"論理条件": or_combined_condition})
+        
+        output_log(f"論理演算処理結果: {len(result_df)}行, 処理済み条件: {processed_conditions}")
+        
+        return (result_df, processed_conditions)
+
+    def _search_without_logical(self, filter_dict):
+        """論理演算子を含まない検索を実行
+        
+        Parameters:
+        ----------
+        filter_dict : dict
+            フィルタ辞書
+            
+        Returns:
+        ----------
+        tuple
+            (検索結果のDataFrame, 処理済み検索条件)
+        """
+        filtered_df = self.database.copy()
+        processed_conditions = {}
+        
+        # 数式によるフィルタリング
+        if 'STAT_EXPRESSION' in filter_dict:
+            for expression_str in filter_dict['STAT_EXPRESSION']:
+                expr_dict = self.parse_stat_expression(expression_str)
+                if expr_dict:
+                    # フィルタリングを実行
+                    filtered_df = self.evaluate_stat_expression(filtered_df, expr_dict)
+                    
+                    # 条件を表示用に整理
+                    self.process_stat_expression_for_display(expr_dict, expression_str, processed_conditions)
+        
+        # 通常のフィルタリング
+        for key, value in filter_dict.items():
+            if key == 'STAT_EXPRESSION':
+                continue  # 数式は既に処理済み
+            
+            if key == 'タイプ':
+                filtered_df = filtered_df[(filtered_df['タイプ1'].isin(value)) | 
+                                        (filtered_df['タイプ2'].isin(value))]
+                processed_conditions['タイプ'] = value
+            elif key == '特性':
+                filtered_df = filtered_df[(filtered_df['特性1'].isin(value)) | 
+                                        (filtered_df['特性2'].isin(value)) | 
+                                        (filtered_df['隠れ特性'].isin(value))]
+                processed_conditions['特性'] = value
+            else:
+                processed_conditions[key] = value
+                try:
+                    if len(value) > 0 and all(isinstance(v, str) and v.isdecimal() for v in value):
+                        filtered_df = filtered_df[filtered_df[key].isin([int(v) for v in value])]
+                    else:
+                        filtered_df = filtered_df[filtered_df[key].isin(value)]
+                except:
+                    filtered_df = filtered_df[filtered_df[key].isin(value)]
+        
+        return (filtered_df, processed_conditions)
+
+    def _preprocess_filter_words(self, filter_words):
+        """検索条件を前処理して論理演算子を適切に分離
+        
+        Parameters:
+        ----------
+        filter_words : list
+            元の検索条件のリスト
+            
+        Returns:
+        ----------
+        list
+            前処理後の検索条件リスト（検索条件ごとに分割）
+        """
+        processed_groups = []
+        
+        for word in filter_words:
+            # 複雑な条件を再帰的に分解
+            if '|' in word and ('&' in word or '>=' in word or '>' in word):
+                # OR条件で分割
+                sub_conditions = word.split('|')
+                or_group = []
+                
+                for i, sub_cond in enumerate(sub_conditions):
+                    if '&' in sub_cond:
+                        # AND条件をさらに分割
+                        and_parts = sub_cond.split('&')
+                        for part in and_parts:
+                            if part:  # 空でない部分を追加
+                                or_group.append(part)
+                            or_group.append('&')
+                        # 最後の余分な&を削除
+                        if or_group and or_group[-1] == '&':
+                            or_group.pop()
+                    else:
+                        or_group.append(sub_cond)
+                    
+                    if i < len(sub_conditions) - 1:  # 最後以外は|を追加
+                        or_group.append('|')
+                
+                processed_groups.append(or_group)
+                
+            elif '&' in word:
+                # AND条件で分割
+                and_parts = word.split('&')
+                and_group = []
+                
+                for i, part in enumerate(and_parts):
+                    if part:  # 空でない部分を追加
+                        and_group.append(part)
+                    if i < len(and_parts) - 1:  # 最後以外は&を追加
+                        and_group.append('&')
+                
+                processed_groups.append(and_group)
+                
+            elif '|' in word:
+                # 単純なOR条件の分割
+                or_parts = word.split('|')
+                or_group = []
+                
+                for i, part in enumerate(or_parts):
+                    if part:  # 空でない部分を追加
+                        or_group.append(part)
+                    if i < len(or_parts) - 1:  # 最後以外は|を追加
+                        or_group.append('|')
+                
+                processed_groups.append(or_group)
+                
+            else:
+                # 通常の単語はそのまま1つのグループに
+                processed_groups.append([word])
+        
+        output_log(f"前処理後の検索条件グループ: {processed_groups}")
+        return processed_groups
+
+    def _convert_to_filter_dict(self, condition_words):
+        """条件リストをフィルタ辞書に変換
+        
+        Parameters:
+        ----------
+        condition_words : list
+            条件のリスト
+            
+        Returns:
+        ----------
+        dict
+            フィルタ辞書
+        """
+        output_log(f"条件リストをフィルタ辞書に変換: {condition_words}")
+        
+        filter_dict = {}
+        
+        for word in condition_words:
+            # 'OR'や'AND'はスキップ
+            if word in ['OR', 'AND']:
+                continue
+                
+            # 種族値の条件
+            if any(word.startswith(stat) for stat in BASE_STATS_DICT.keys()) and any(op in word for op in ['>', '<', '=']):
+                if 'STAT_EXPRESSION' not in filter_dict:
+                    filter_dict['STAT_EXPRESSION'] = []
+                filter_dict['STAT_EXPRESSION'].append(word)
+                continue
+                
+            # 合計値の条件
+            if word.startswith('合計') and any(op in word for op in ['>', '<', '=']):
+                if 'STAT_EXPRESSION' not in filter_dict:
+                    filter_dict['STAT_EXPRESSION'] = []
+                filter_dict['STAT_EXPRESSION'].append(word)
+                continue
+                
+            # タイプ、世代、進化段階などの条件
+            if word in self.database['タイプ1'].unique().tolist():
+                if 'タイプ' not in filter_dict:
+                    filter_dict['タイプ'] = []
+                filter_dict['タイプ'].append(word)
+            elif word in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
+                if '初登場世代' not in filter_dict:
+                    filter_dict['初登場世代'] = []
+                filter_dict['初登場世代'].append(word)
+            elif word in self.database['進化段階'].unique().tolist():
+                if '進化段階' not in filter_dict:
+                    filter_dict['進化段階'] = []
+                filter_dict['進化段階'].append(word)
+            elif word in self.database['出身地'].unique().tolist():
+                if '出身地' not in filter_dict:
+                    filter_dict['出身地'] = []
+                filter_dict['出身地'].append(word)
+            elif word.upper() in np.unique(self.database[['特性1', '特性2', '隠れ特性']].astype(str).values.ravel()):
+                if '特性' not in filter_dict:
+                    filter_dict['特性'] = []
+                filter_dict['特性'].append(word)
+        
+        output_log(f"生成されたフィルタ辞書: {filter_dict}")
+        return filter_dict
+
+    def _convert_to_human_readable(self, processed_conditions):
+        """処理済み条件を人間が読みやすい形式に変換
+        
+        Parameters:
+        ----------
+        processed_conditions : dict
+            処理済み条件の辞書
+            
+        Returns:
+        ----------
+        dict
+            人間が読みやすい形式に変換された条件辞書
+        """
+        readable_conditions = {}
+        
+        for key, values in processed_conditions.items():
+            # 論理条件の処理
+            if key == '論理条件':
+                logic_parts = []
+                
+                # タイプの論理条件を抽出して変換
+                type_pattern = r'タイプ: ([^\)]+)'
+                type_matches = re.findall(type_pattern, values)
+                
+                if type_matches:
+                    types = []
+                    for type_match in type_matches:
+                        # OR条件を「または」に、AND条件を「かつ」に変換
+                        type_text = type_match.replace(' OR ', 'または').replace(' AND ', 'かつ')
+                        types.append(type_text)
+                    
+                    type_text = 'または'.join(types)
+                    readable_conditions['タイプ'] = f"{type_text.replace(',', '')}タイプ"
+                
+                # 種族値条件を抽出
+                for stat, stat_name in [
+                    ('HP', 'HP'), 
+                    ('こうげき', 'こうげき'), 
+                    ('ぼうぎょ', 'ぼうぎょ'), 
+                    ('とくこう', 'とくこう'), 
+                    ('とくぼう', 'とくぼう'), 
+                    ('すばやさ', 'すばやさ')
+                ]:
+                    stat_pattern = rf'{stat_name}: [^,)]+([><]=?\d+)'
+                    stat_matches = re.findall(stat_pattern, values)
+                    
+                    if stat_matches:
+                        for stat_match in stat_matches:
+                            op = re.search(r'([><]=?)', stat_match).group(1)
+                            val = re.search(r'(\d+)', stat_match).group(1)
+                            
+                            if op == '>':
+                                op_text = 'より大きい'
+                            elif op == '>=':
+                                op_text = '以上'
+                            elif op == '<':
+                                op_text = 'より小さい'
+                            elif op == '<=':
+                                op_text = '以下'
+                            else:  # ==, =
+                                op_text = 'と等しい'
+                            
+                            readable_conditions[stat_name] = f"{stat_name}が{val}{op_text}"
+                
+                # 他の条件も抽出（世代、進化段階など）
+                for other_key in ['初登場世代', '進化段階', '出身地', '特性']:
+                    other_pattern = rf'{other_key}: ([^,)]+)'
+                    other_matches = re.findall(other_pattern, values)
+                    
+                    if other_matches:
+                        for other_match in other_matches:
+                            readable_conditions[other_key] = other_match.replace(',', '')
+            
+            # 通常の条件の処理
+            elif key == 'すばやさ' and isinstance(values, list):
+                for value in values:
+                    if '>' in value:
+                        op = '>' 
+                        op_text = 'より大きい'
+                    elif '>=' in value:
+                        op = '>='
+                        op_text = '以上'
+                    elif '<' in value:
+                        op = '<'
+                        op_text = 'より小さい'
+                    elif '<=' in value:
+                        op = '<='
+                        op_text = '以下'
+                    else:
+                        op = '='
+                        op_text = 'と等しい'
+                    
+                    val = re.search(r'(\d+)', value).group(1)
+                    readable_conditions[key] = f"{key}が{val}{op_text}"
+            
+            # その他の条件はそのまま
+            else:
+                readable_conditions[key] = values
+        
+        return readable_conditions
+
+
+
+
+
+            # 通常の検索処理（既存のコード）
+            # ...略
+        
+        output_log("データのフィルタリングが完了しました 取得行数: " + str(filtered_df.shape[0]))
+        output_log(f"処理済みの条件: {processed_conditions}")
+        
+        # 結果の保存
+        self.processed_conditions = processed_conditions
+        
+        # 検索結果の整形
+        results = []
+        for _, row in filtered_df.iterrows():
+            results.append([row['おなまえ'], bss_to_text(row)])
+        
+        self.current_results = results
+        return (filtered_df, processed_conditions)
+
+
+    def _search_with_logical_groups(self, logical_groups):
+        """論理演算子グループを処理して検索
+        
+        Parameters:
+        ----------
+        logical_groups : list
+            論理演算子を含む条件グループのリスト
+            
+        Returns:
+        ----------
+        tuple
+            (検索結果のDataFrame, 処理済み条件)
+        """
+        output_log(f"論理演算子グループを処理: {logical_groups}")
+        
+        # 全体の結果（すべてのANDグループの結果をAND結合したもの）
+        final_result = self.database.copy()
+        
+        # OR条件リストを格納
+        or_condition_list = []
+        
+        # 各ANDグループを処理（スペースで区切られた部分）
+        for group in logical_groups:
+            # グループ内の演算子を正規化
+            normalized_group = []
+            for item in group:
+                if item.lower() == 'or' or item == '|':
+                    normalized_group.append('OR')
+                elif item.lower() == 'and' or item == '&':
+                    normalized_group.append('AND')
+                else:
+                    normalized_group.append(item)
+            
+            output_log(f"正規化したグループ: {normalized_group}")
+            
+            # OR条件で分割
+            or_conditions = []
+            current_or = []
+            
+            for item in normalized_group:
+                if item == 'OR':
+                    if current_or:
+                        or_conditions.append(current_or)
+                        current_or = []
+                else:
+                    current_or.append(item)
+            
+            if current_or:
+                or_conditions.append(current_or)
+            
+            output_log(f"OR条件リスト: {or_conditions}")
+            or_condition_list = or_conditions  # OR条件リストを保存
+            
+            # 各OR条件の結果を結合
+            or_results = []
+            
+            for or_condition in or_conditions:
+                # 条件をフィルタ辞書に変換
+                condition_dict = self._condition_to_filter_dict(or_condition)
+                or_df, _ = self._process_simple_condition(condition_dict)
+                or_results.append(or_df)
+            
+            # OR結果を結合（和集合）
+            group_result = pd.concat(or_results).drop_duplicates() if or_results else pd.DataFrame()
+            
+            # グループの結果を全体の結果にAND結合（積集合）
+            final_result = final_result[final_result.index.isin(group_result.index)]
+        
+        # OR条件リストを処理済み条件として返す
+        processed_conditions = {"OR条件リスト": or_condition_list}
+        
+        return (final_result, processed_conditions)
+
+    def _condition_to_filter_dict(self, condition):
+        """条件リストをフィルタ辞書に変換
+        
+        Parameters:
+        ----------
+        condition : list
+            条件のリスト
+            
+        Returns:
+        ----------
+        dict
+            フィルタ辞書
+        """
+        filter_dict = {}
+        
+        for item in condition:
+            # 論理演算子はスキップ
+            if item in ['OR', 'AND', '|', '&']:
+                continue
+            
+            # 種族値の条件
+            if any(item.startswith(stat) for stat in ['H', 'A', 'B', 'C', 'D', 'S']) and any(op in item for op in ['>', '<', '=']):
+                if 'STAT_EXPRESSION' not in filter_dict:
+                    filter_dict['STAT_EXPRESSION'] = []
+                filter_dict['STAT_EXPRESSION'].append(item)
+                continue
+            
+            # 合計値の条件
+            if item.startswith('合計') and any(op in item for op in ['>', '<', '=']):
+                if 'STAT_EXPRESSION' not in filter_dict:
+                    filter_dict['STAT_EXPRESSION'] = []
+                filter_dict['STAT_EXPRESSION'].append(item)
+                continue
+            
+            # タイプ、世代、進化段階などの条件
+            if item in self.database['タイプ1'].unique().tolist():
+                if 'タイプ' not in filter_dict:
+                    filter_dict['タイプ'] = []
+                filter_dict['タイプ'].append(item)
+            elif item in ['1', '2', '3', '4', '5', '6', '7', '8', '9']:
+                if '初登場世代' not in filter_dict:
+                    filter_dict['初登場世代'] = []
+                filter_dict['初登場世代'].append(item)
+            elif item in self.database['進化段階'].unique().tolist():
+                if '進化段階' not in filter_dict:
+                    filter_dict['進化段階'] = []
+                filter_dict['進化段階'].append(item)
+            elif item in self.database['出身地'].unique().tolist():
+                if '出身地' not in filter_dict:
+                    filter_dict['出身地'] = []
+                filter_dict['出身地'].append(item)
+            elif item.upper() in np.unique(self.database[['特性1', '特性2', '隠れ特性']].astype(str).values.ravel()):
+                if '特性' not in filter_dict:
+                    filter_dict['特性'] = []
+                filter_dict['特性'].append(item)
+        
+        return filter_dict
+    
+    def _process_simple_condition(self, filter_dict):
+        """単純な検索条件を処理
+        
+        Parameters:
+        ----------
+        filter_dict : dict
+            フィルタ辞書
+            
+        Returns:
+        ----------
+        tuple
+            (検索結果のDataFrame, 処理済み条件)
+        """
+        filtered_df = self.database.copy()
+        processed_conditions = {}
+        
+        # 数式による処理
+        if 'STAT_EXPRESSION' in filter_dict:
+            for expr_str in filter_dict['STAT_EXPRESSION']:
+                expr_dict = self.parse_stat_expression(expr_str)
+                if expr_dict:
+                    filtered_df = self.evaluate_stat_expression(filtered_df, expr_dict)
+                    self.process_stat_expression_for_display(expr_dict, expr_str, processed_conditions)
+        
+        # 通常のフィルタリング
+        for key, value in filter_dict.items():
+            if key == 'STAT_EXPRESSION':
+                continue
+            
+            if key == 'タイプ':
+                filtered_df = filtered_df[(filtered_df['タイプ1'].isin(value)) | (filtered_df['タイプ2'].isin(value))]
+                processed_conditions['タイプ'] = value
+            elif key == '特性':
+                filtered_df = filtered_df[(filtered_df['特性1'].isin(value)) | (filtered_df['特性2'].isin(value)) | (filtered_df['隠れ特性'].isin(value))]
+                processed_conditions['特性'] = value
+            else:
+                processed_conditions[key] = value
+                try:
+                    if len(value) > 0 and all(isinstance(v, str) and v.isdecimal() for v in value):
+                        filtered_df = filtered_df[filtered_df[key].isin([int(v) for v in value])]
+                    else:
+                        filtered_df = filtered_df[filtered_df[key].isin(value)]
+                except:
+                    filtered_df = filtered_df[filtered_df[key].isin(value)]
+        
+        return (filtered_df, processed_conditions)
+
+    def _format_logical_conditions(self, conditions):
+        """論理条件を読みやすい形式に整形
+        
+        Parameters:
+        ----------
+        conditions : dict
+            条件辞書
+            
+        Returns:
+        ----------
+        dict
+            整形された条件辞書
+        """
+        # 論理式のグループを抽出
+        logical_expressions = []
+        
+        # OR条件リストから論理式を抽出
+        for group_condition in conditions.values():
+            if isinstance(group_condition, str):
+                # OR条件リストの処理
+                or_conditions = re.findall(r'OR条件リスト: \[(.*?)\]', group_condition)
+                if or_conditions:
+                    for or_condition in or_conditions:
+                        # 個々の条件グループを抽出
+                        condition_groups = re.findall(r'\[(.*?)\]', or_condition)
+                        for i, group in enumerate(condition_groups):
+                            # 'AND'を除去して条件だけを取得
+                            parts = []
+                            for part in group.split(', '):
+                                if part.strip("'") not in ["AND", "OR"]:
+                                    parts.append(part.strip("'"))
+                            
+                            if parts:
+                                expr = " & ".join(parts)
+                                logical_expressions.append(expr)
+        
+        # 論理式が抽出できた場合
+        if logical_expressions:
+            # 「論理式」というキーで返す
+            return {"論理式": logical_expressions}
+        
+        # 通常の条件処理
+        return conditions
+
+
+
 
 
