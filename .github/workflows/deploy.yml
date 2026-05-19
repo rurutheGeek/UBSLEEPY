@@ -1,0 +1,17 @@
+name: Trigger Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Infrastructure Deployment
+        uses: peter-evans/repository-dispatch@v2
+        with:
+          token: ${{ secrets.INFRA_REPO_DISPATCH_TOKEN }}
+          repository: rurutheGeek/shake-infra
+          event-type: deploy_ubsleepy
